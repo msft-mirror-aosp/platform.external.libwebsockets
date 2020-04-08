@@ -22,6 +22,10 @@ project(libwebsockets C)
 option(LWS_WITH_DISTRO_RECOMMENDED "Enable features recommended for distro packaging" OFF)
 option(LWS_FOR_GITOHASHI "Enable features recommended for use with gitohashi" OFF)
 
+# variables for libwebsockets build as x86-64 host library in Android
+include(CMakeAndroidLists.txt)
+# end of variables for libwebsockets build as x86-64 host library in Android
+
 #
 # Major individual features
 #
@@ -72,7 +76,7 @@ option(LWS_WITH_SECURE_STREAMS_SYS_AUTH_API_AMAZON_COM "Auth support for api.ama
 #
 option(LWS_WITH_SSL "Include SSL support (defaults to OpenSSL or similar, mbedTLS if LWS_WITH_MBEDTLS is set)" ON)
 option(LWS_WITH_MBEDTLS "Use mbedTLS (>=2.0) replacement for OpenSSL. When setting this, you also may need to specify LWS_MBEDTLS_LIBRARIES and LWS_MBEDTLS_INCLUDE_DIRS" OFF)
-option(LWS_WITH_BORINGSSL "Use BoringSSL replacement for OpenSSL" OFF)
+option(LWS_WITH_BORINGSSL "Use BoringSSL replacement for OpenSSL" ON)
 option(LWS_WITH_CYASSL "Use CyaSSL replacement for OpenSSL. When setting this, you also need to specify LWS_CYASSL_LIBRARIES and LWS_CYASSL_INCLUDE_DIRS" OFF)
 option(LWS_WITH_WOLFSSL "Use wolfSSL replacement for OpenSSL. When setting this, you also need to specify LWS_WOLFSSL_LIBRARIES and LWS_WOLFSSL_INCLUDE_DIRS" OFF)
 option(LWS_SSL_CLIENT_USE_OS_CA_CERTS "SSL support should make use of the OS-installed CA root certs" ON)
@@ -88,7 +92,7 @@ option(LWS_WITH_GLIB "Compile with support for glib event loop" OFF)
 # Static / Dynamic build options
 #
 option(LWS_WITH_STATIC "Build the static version of the library" ON)
-option(LWS_WITH_SHARED "Build the shared version of the library" ON)
+option(LWS_WITH_SHARED "Build the shared version of the library" OFF)
 option(LWS_LINK_TESTAPPS_DYNAMIC "Link the test apps to the shared version of the library. Default is to link statically" OFF)
 option(LWS_STATIC_PIC "Build the static version of the library with position-independent code" OFF)
 #
@@ -105,7 +109,7 @@ option(LWS_PLAT_ANDROID "Android flavour of unix platform" OFF)
 #
 option(LWS_WITHOUT_CLIENT "Don't build the client part of the library" OFF)
 option(LWS_WITHOUT_SERVER "Don't build the server part of the library" OFF)
-option(LWS_WITHOUT_TESTAPPS "Don't build the libwebsocket-test-apps" OFF)
+option(LWS_WITHOUT_TESTAPPS "Don't build the libwebsocket-test-apps" ON)
 option(LWS_WITHOUT_TEST_SERVER "Don't build the test server" OFF)
 option(LWS_WITHOUT_TEST_SERVER_EXTPOLL "Don't build the test server version that uses external poll" OFF)
 option(LWS_WITHOUT_TEST_PING "Don't build the ping test application" OFF)
@@ -1989,7 +1993,14 @@ if (LWS_WITH_SSL)
 			find_package(OpenSSL REQUIRED)
 			list(APPEND OPENSSL_LIBRARIES ${PC_OPENSSL_LIBRARIES})
 		endif()
-			set(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIR}")
+			set(OPENSSL_INCLUDE_DIRS "${OPENSSL_INCLUDE_DIRS}")
+		endif()
+
+		if (LWS_WITH_BORINGSSL)
+			list(APPEND OPENSSL_LIBRARIES "${BUILD_LIBSSL_DIR}/libssl.a")
+			list(APPEND OPENSSL_LIBRARIES "${BUILD_LIBCRYPTO_DIR}/libcrypto.a")
+			list(APPEND OPENSSL_LIBRARIES "${BUILD_LIBCAP_DIR}/libcap.a")
+			set(OPENSSL_INCLUDE_DIRS "${BUILD_BORINGSSL_INCDIR}" ${OPENSSL_INCLUDE_DIRS})
 		endif()
 
 		message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIRS}")
