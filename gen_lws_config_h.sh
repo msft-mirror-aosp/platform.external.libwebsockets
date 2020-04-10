@@ -62,18 +62,34 @@ function sed_in_cmake_android() {
   sed -i "s/$from/$to/g" $cmake_android_file
 }
 
+function build_prerequisites() {
+  local modules=("$@")
+  (
+  pushd ${ANDROID_ROOTDIR}
+  source ${ANDROID_ROOTDIR}/build/envsetup.sh
+  for mod in "${modules[@]}"; do
+    mmm $mod
+  done
+  popd
+  )
+}
+
 function create_android_list() {
   #
   # by filling out the form in CMAKE_ANDROID_FILE_TEMPLATE,
   # create CMAKE_ANDROID_FILE that is included in CMakeLists.txt
   #
-  # The CMAKE_ANDROID_FILE defines libray/include directories for
+  # The CMAKE_ANDROID_FILE defines library/include directories for
   # libraries provided by somewhere in Android Root
   #
   rm -f ${CMAKE_ANDROID_FILE} || true
   cp -f ${CMAKE_ANDROID_FILE_TEMPLATE} ${CMAKE_ANDROID_FILE}
   sed_in_cmake_android "android_src_root_dir" ${ANDROID_ROOTDIR} ${CMAKE_ANDROID_FILE}
-  libs=("libssl" "libcrypto" "libcap")
+  # libraries that libwebsockets would depend on
+  local libs=("libssl" "libcrypto" "libcap")
+  # Android components that provide the "libs" above
+  local components=("external/boringssl" "external/libcap")
+  build_prerequisites "${components[@]}"
   for lib in ${libs[@]}; do
     local libfile_path=$(find_lib_path $lib)
     local libpath=$(dirname ${libfile_path})
@@ -82,8 +98,6 @@ function create_android_list() {
     sed_in_cmake_android "$str_to_replae" $libpath ${CMAKE_ANDROID_FILE}
   done
 }
-
-# build required modules ahead by installing & build fake_module
 
 # create CMakeAndroidLists.txt
 create_android_list
