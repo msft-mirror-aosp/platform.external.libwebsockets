@@ -166,7 +166,7 @@ typedef unsigned long long lws_intptr_t;
 #define LWS_FORMAT(string_index)
 #endif
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__BIONIC__)
 #include <netinet/in.h>
 #include <unistd.h>
 #endif
