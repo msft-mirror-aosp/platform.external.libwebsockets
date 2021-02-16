@@ -6,6 +6,9 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE    := libwebsockets
+LOCAL_LICENSE_KINDS := SPDX-license-identifier-BSD SPDX-license-identifier-GPL SPDX-license-identifier-MIT SPDX-license-identifier-Zlib legacy_unencumbered
+LOCAL_LICENSE_CONDITIONS := notice restricted unencumbered
+LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../LICENSE
 LOCAL_CFLAGS    := -DLWS_BUILTIN_GETIFADDRS
 LWS_LIB_PATH	:= ../../../shared/libwebsockets/lib
 LOCAL_C_INCLUDES:= $(LOCAL_PATH)/$(LWS_LIB_PATH)
