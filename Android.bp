@@ -127,6 +127,13 @@ cc_library_static {
         "libcap",
     ],
     host_supported: true,
+    product_variables: {
+        debuggable: {
+            cflags: [
+                "-UNDEBUG",
+            ],
+        },
+    },
     target: {
         darwin: {
             enabled: false,
@@ -145,6 +152,7 @@ cc_library_static {
                 "libcrypto",
             ],
             cflags: [
+                "-UNDEBUG",
                 "-Wall",
                 "-Wsign-compare",
                 "-Wstrict-aliasing",
