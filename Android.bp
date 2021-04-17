@@ -160,18 +160,37 @@ cc_library_static {
     srcs: libwebsocketsSrcFiles,
     local_include_dirs: libwebsocketsIncludePath,
     export_include_dirs: ["include"],
-    static_libs: ["libcrypto", "libssl", "libcap"],
+    static_libs: [
+        "libssl",
+        "libcap",
+    ],
     host_supported: true,
-    device_supported: false,
-    target: {
-        android: {
-            enabled: false,
+    product_variables: {
+        debuggable: {
+            cflags: [
+                "-UNDEBUG",
+            ],
         },
+    },
+    target: {
         darwin: {
             enabled: false,
         },
-        host: {
+        android: {
+            shared_libs: [
+                "libcrypto",
+            ],
             cflags: [
+                "-Wno-unused-parameter",
+                "-Wno-missing-field-initializers",
+            ],
+        },
+        host: {
+            static_libs: [
+                "libcrypto",
+            ],
+            cflags: [
+                "-UNDEBUG",
                 "-Wall",
                 "-Wsign-compare",
                 "-Wstrict-aliasing",
