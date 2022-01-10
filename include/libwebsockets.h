@@ -218,8 +218,9 @@ typedef int suseconds_t;
 #endif
 #endif
 
-
-#if defined(__ANDROID__)
+// __ANDROID__ is not defined for host builds, but this headers are available in
+// them.
+#if defined(__ANDROID__) || 1
 #include <netinet/in.h>
 #include <unistd.h>
 #endif
