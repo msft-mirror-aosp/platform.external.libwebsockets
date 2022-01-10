@@ -5,9 +5,6 @@ LOCAL_PATH := $(call my-dir)
 #
 include $(CLEAR_VARS)
 LOCAL_MODULE := libz
-LOCAL_LICENSE_KINDS := SPDX-license-identifier-CC0-1.0 legacy_unencumbered
-LOCAL_LICENSE_CONDITIONS := unencumbered
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../../LICENSE
 LOCAL_SRC_FILES := $(TARGET_ARCH_ABI)/lib/libz.a
 include $(PREBUILT_STATIC_LIBRARY)
 
@@ -15,9 +12,6 @@ include $(PREBUILT_STATIC_LIBRARY)
 #
 include $(CLEAR_VARS)
 LOCAL_MODULE := libssl
-LOCAL_LICENSE_KINDS := SPDX-license-identifier-CC0-1.0 legacy_unencumbered
-LOCAL_LICENSE_CONDITIONS := unencumbered
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../../LICENSE
 LOCAL_SRC_FILES := $(TARGET_ARCH_ABI)/lib/libssl.a
 include $(PREBUILT_STATIC_LIBRARY)
 
@@ -25,9 +19,6 @@ include $(PREBUILT_STATIC_LIBRARY)
 #
 include $(CLEAR_VARS)
 LOCAL_MODULE := libcrypto
-LOCAL_LICENSE_KINDS := SPDX-license-identifier-CC0-1.0 legacy_unencumbered
-LOCAL_LICENSE_CONDITIONS := unencumbered
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../../LICENSE
 LOCAL_SRC_FILES := $(TARGET_ARCH_ABI)/lib/libcrypto.a
 include $(PREBUILT_STATIC_LIBRARY)
 
@@ -35,9 +26,6 @@ include $(PREBUILT_STATIC_LIBRARY)
 #
 include $(CLEAR_VARS)
 LOCAL_MODULE := libwebsockets
-LOCAL_LICENSE_KINDS := SPDX-license-identifier-CC0-1.0 legacy_unencumbered
-LOCAL_LICENSE_CONDITIONS := unencumbered
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../../LICENSE
 LOCAL_SRC_FILES := $(TARGET_ARCH_ABI)/lib/libwebsockets.a
 include $(PREBUILT_STATIC_LIBRARY)
 
@@ -46,9 +34,6 @@ include $(PREBUILT_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_DISABLE_FATAL_LINKER_WARNINGS := true
 LOCAL_MODULE := lwsservice
-LOCAL_LICENSE_KINDS := SPDX-license-identifier-CC0-1.0 legacy_unencumbered
-LOCAL_LICENSE_CONDITIONS := unencumbered
-LOCAL_NOTICE_FILE := $(LOCAL_PATH)/../../../../../../LICENSE
 LOCAL_SRC_FILES := LwsService.cpp
 LOCAL_C_INCLUDES := $(LOCAL_PATH) $(TARGET_ARCH_ABI)/include
 LOCAL_STATIC_LIBRARIES := websockets z ssl crypto
