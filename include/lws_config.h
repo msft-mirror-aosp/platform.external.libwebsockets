@@ -181,7 +181,7 @@
 #define LWS_LOGS_TIMESTAMP
 /* #undef LWS_WITH_MBEDTLS */
 /* #undef LWS_WITH_MINIZ */
-#define LWS_WITH_NETLINK
+/* #undef LWS_WITH_NETLINK */
 #define LWS_WITH_NETWORK
 /* #undef LWS_WITH_NO_LOGS */
 #define LWS_WITH_CACHE_NSCOOKIEJAR
