@@ -13,6 +13,7 @@
 #include <libwebsockets.h>
 #include <string.h>
 #include <signal.h>
+#include <pthread.h>
 
 /*
  * This represents your object that "contains" the client connection and has
@@ -137,8 +138,8 @@ do_retry:
 }
 
 static const struct lws_protocols protocols[] = {
-	{ "lws-minimal-client", callback_minimal, 0, 0, 0, NULL, 0 },
-	LWS_PROTOCOL_LIST_TERM
+	{ "lws-minimal-client", callback_minimal, 0, 0, },
+	{ NULL, NULL, 0, 0 }
 };
 
 static void
@@ -163,7 +164,7 @@ int main(int argc, const char **argv)
 	info.port = CONTEXT_PORT_NO_LISTEN; /* we do not run any server */
 	info.protocols = protocols;
 
-#if defined(LWS_WITH_MBEDTLS) || defined(USE_WOLFSSL)
+#if defined(LWS_WITH_MBEDTLS)
 	/*
 	 * OpenSSL uses the system trust store.  mbedTLS has to be told which
 	 * CA to trust explicitly.
@@ -179,9 +180,6 @@ int main(int argc, const char **argv)
 
 	if ((p = lws_cmdline_option(argc, argv, "-p")))
 		port = atoi(p);
-
-	if (lws_cmdline_option(argc, argv, "-n"))
-		ssl_connection &= ~LCCSCF_USE_SSL;
 
 	if (lws_cmdline_option(argc, argv, "-j"))
 		ssl_connection |= LCCSCF_ALLOW_SELFSIGNED;

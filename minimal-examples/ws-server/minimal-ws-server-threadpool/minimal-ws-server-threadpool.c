@@ -21,21 +21,15 @@
 #include <libwebsockets.h>
 #include <string.h>
 #include <signal.h>
-#if defined(WIN32)
-#define HAVE_STRUCT_TIMESPEC
-#if defined(pid_t)
-#undef pid_t
-#endif
-#endif
 #include <pthread.h>
 
 #define LWS_PLUGIN_STATIC
 #include "protocol_lws_minimal_threadpool.c"
 
 static struct lws_protocols protocols[] = {
-	{ "http", lws_callback_http_dummy, 0, 0, 0, NULL, 0 },
+	{ "http", lws_callback_http_dummy, 0, 0 },
 	LWS_PLUGIN_PROTOCOL_MINIMAL,
-	LWS_PROTOCOL_LIST_TERM
+	{ NULL, NULL, 0, 0 } /* terminator */
 };
 
 static int interrupted;
@@ -130,8 +124,6 @@ int main(int argc, const char **argv)
 			interrupted = 1;
 
 	lws_context_destroy(context);
-
-	lwsl_user("%s: exiting cleanly...\n", __func__);
 
 	return 0;
 }
