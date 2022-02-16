@@ -31,10 +31,6 @@
 
 #include "ssl_code.h"
 
-#include <mbedtls/x509_crt.h>
-
-#include "private-jit-trust.h"
-
 typedef void SSL_CIPHER;
 
 typedef void X509_STORE_CTX;
@@ -187,7 +183,7 @@ struct ssl_ctx_st
 
     int verify_mode;
 
-    int (*default_verify_callback) (SSL *, mbedtls_x509_crt *);
+    int (*default_verify_callback) (int ok, X509_STORE_CTX *ctx);
 
     long session_timeout;
 
@@ -196,8 +192,6 @@ struct ssl_ctx_st
     int read_buffer_len;
 
     X509_VERIFY_PARAM param;
-
-    void *rngctx;
 };
 
 struct ssl_st
@@ -229,11 +223,7 @@ struct ssl_st
 
     int verify_mode;
 
-    int (*verify_callback) (SSL *, mbedtls_x509_crt *);
-
-#if defined(LWS_WITH_TLS_JIT_TRUST)
-    lws_tls_kid_chain_t		kid_chain;
-#endif
+    int (*verify_callback) (int ok, X509_STORE_CTX *ctx);
 
     int rwstate;
     int interrupted_remaining_write;
@@ -302,7 +292,7 @@ struct x509_method_st {
 
 struct pkey_method_st {
 
-    int (*pkey_new)(EVP_PKEY *pkey, EVP_PKEY *m_pkey, void *rngctx);
+    int (*pkey_new)(EVP_PKEY *pkey, EVP_PKEY *m_pkey);
 
     void (*pkey_free)(EVP_PKEY *pkey);
 
