@@ -23,12 +23,8 @@
  */
 
 #if !defined (LWS_PLUGIN_STATIC)
-#if !defined(LWS_DLL)
 #define LWS_DLL
-#endif
-#if !defined(LWS_INTERNAL)
 #define LWS_INTERNAL
-#endif
 #include <libwebsockets.h>
 #endif
 
@@ -162,7 +158,7 @@ flow_control(struct conn *conn, int side, int enable)
 	if (lws_rx_flow_control(conn->wsi[side], enable))
 		return 1;
 
-	conn->rx_enabled[side] = (char)enable;
+	conn->rx_enabled[side] = enable;
 	lwsl_info("%s: %s side: %s\n", __func__, side ? "ONW" : "ACC",
 		  enable ? "rx enabled" : "rx flow controlled");
 
@@ -191,13 +187,11 @@ callback_raw_proxy(struct lws *wsi, enum lws_callback_reasons reason,
 	case LWS_CALLBACK_PROTOCOL_INIT:
 		vhd = lws_protocol_vh_priv_zalloc(lws_get_vhost(wsi),
 				lws_get_protocol(wsi), sizeof(struct raw_vhd));
-		if (!vhd)
-			return 0;
 		if (lws_pvo_get_str(in, "onward", &cp)) {
-			lwsl_warn("%s: vh %s: pvo 'onward' required\n", __func__,
+			lwsl_err("%s: vh %s: pvo 'onward' required\n", __func__,
 				 lws_get_vhost_name(lws_get_vhost(wsi)));
 
-			return 0;
+			return -1;
 		}
 		lws_tokenize_init(&ts, cp, LWS_TOKENIZE_F_DOT_NONTERM |
 					   LWS_TOKENIZE_F_MINUS_NONTERM |
@@ -229,7 +223,7 @@ callback_raw_proxy(struct lws *wsi, enum lws_callback_reasons reason,
 				e = lws_tokenize(&ts);
 				if (e != LWS_TOKZE_INTEGER)
 					goto bad_onward;
-				vhd->port = (uint16_t)atoi(ts.token);
+				vhd->port = atoi(ts.token);
 				e = lws_tokenize(&ts);
 			}
 			if (e != LWS_TOKZE_ENDED)
@@ -304,7 +298,7 @@ bad_onward:
 			lwsl_notice("OOM: dropping\n");
 			return -1;
 		}
-		pkt.len = (uint32_t)len;
+		pkt.len = len;
 		pkt.ticket = conn->ticket_next++;
 
 		memcpy(pkt.payload, in, len);
@@ -461,7 +455,7 @@ bad_onward:
 			lwsl_notice("OOM: dropping\n");
 			return -1;
 		}
-		pkt.len = (uint32_t)len;
+		pkt.len = len;
 		pkt.ticket = conn->ticket_next++;
 
 		memcpy(pkt.payload, in, len);
@@ -564,23 +558,33 @@ bad_onward:
 
 #if !defined (LWS_PLUGIN_STATIC)
 
-LWS_VISIBLE const struct lws_protocols lws_raw_proxy_protocols[] = {
+static const struct lws_protocols protocols[] = {
 	LWS_PLUGIN_PROTOCOL_RAW_PROXY
 };
 
-LWS_VISIBLE const lws_plugin_protocol_t lws_raw_proxy = {
-	.hdr = {
-		"raw proxy",
-		"lws_protocol_plugin",
-		LWS_BUILD_HASH,
-		LWS_PLUGIN_API_MAGIC
-	},
+LWS_VISIBLE int
+init_protocol_lws_raw_proxy(struct lws_context *context,
+			    struct lws_plugin_capability *c)
+{
+	if (c->api_magic != LWS_PLUGIN_API_MAGIC) {
+		lwsl_err("Plugin API %d, library API %d", LWS_PLUGIN_API_MAGIC,
+			 c->api_magic);
+		return 1;
+	}
 
-	.protocols = lws_raw_proxy_protocols,
-	.count_protocols = LWS_ARRAY_SIZE(lws_raw_proxy_protocols),
-	.extensions = NULL,
-	.count_extensions = 0,
-};
+	c->protocols = protocols;
+	c->count_protocols = LWS_ARRAY_SIZE(protocols);
+	c->extensions = NULL;
+	c->count_extensions = 0;
+
+	return 0;
+}
+
+LWS_VISIBLE int
+destroy_protocol_lws_raw_proxy(struct lws_context *context)
+{
+	return 0;
+}
 #endif
 
 

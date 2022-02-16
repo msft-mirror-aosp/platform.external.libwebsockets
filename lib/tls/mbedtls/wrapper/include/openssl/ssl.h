@@ -51,8 +51,6 @@
 
  SSL *SSL_SSL_from_mbedtls_ssl_context(mbedtls_ssl_context *msc);
 
- mbedtls_ssl_context *SSL_mbedtls_ssl_context_from_SSL(SSL *ssl);
-
 /**
  * @brief create a SSL context
  *
@@ -60,7 +58,7 @@
  *
  * @return the context point
  */
-SSL_CTX* SSL_CTX_new(const SSL_METHOD *method, void *rngctx);
+SSL_CTX* SSL_CTX_new(const SSL_METHOD *method);
 
 /**
  * @brief free a SSL context
@@ -708,7 +706,7 @@ int SSL_CTX_get_verify_depth(const SSL_CTX *ctx);
  *
  * @return none
  */
-void SSL_CTX_set_verify(SSL_CTX *ctx, int mode, int (*verify_callback)(SSL *, mbedtls_x509_crt *));
+void SSL_CTX_set_verify(SSL_CTX *ctx, int mode, int (*verify_callback)(int, X509_STORE_CTX *));
 
 /**
  * @brief set the SSL verifying of the SSL context
@@ -719,7 +717,7 @@ void SSL_CTX_set_verify(SSL_CTX *ctx, int mode, int (*verify_callback)(SSL *, mb
  *
  * @return none
  */
-void SSL_set_verify(SSL *s, int mode, int (*verify_callback)(SSL *, mbedtls_x509_crt *));
+void SSL_set_verify(SSL *s, int mode, int (*verify_callback)(int, X509_STORE_CTX *));
 
 /**
  * @brief set the SSL verify depth of the SSL context
@@ -739,7 +737,7 @@ void SSL_CTX_set_verify_depth(SSL_CTX *ctx, int depth);
  *
  * @return verifying result
  */
-int verify_callback(SSL *, mbedtls_x509_crt *);
+int verify_callback(int preverify_ok, X509_STORE_CTX *x509_ctx);
 
 /**
  * @brief set the session timeout time

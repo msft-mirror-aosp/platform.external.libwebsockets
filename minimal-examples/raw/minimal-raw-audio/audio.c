@@ -171,7 +171,7 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason,
 
 static struct lws_protocols protocols[] = {
 	{ "lws-audio-test", callback_raw_test, 0, 0 },
-	LWS_PROTOCOL_LIST_TERM
+	{ NULL, NULL, 0, 0 } /* terminator */
 };
 
 static int interrupted;
