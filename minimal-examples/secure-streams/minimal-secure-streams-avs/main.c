@@ -151,20 +151,14 @@ static const char * const default_ss_policy =
 			"]"
 		"}"
 	  "],"
-	  "\"auth\": [" /* available auth type bindings */
-		"{"
-		  "\"name\":"		"\"lwa\","
-		  "\"streamtype\":"	"\"api_amazon_com_lwa\","
-		  "\"blob\":"		"0"
-		"}"
-	  "],"
 	  "\"s\": [" /* the supported stream types */
-		"{\"api_amazon_com_lwa\": {"
+		"{\"api_amazon_com_auth\": {"
 			"\"endpoint\":"			"\"api.amazon.com\","
 			"\"port\":"			"443,"
 			"\"protocol\":"			"\"h1\","
 			"\"http_method\":"		"\"POST\","
 			"\"http_url\":"			"\"auth/o2/token\","
+			"\"plugins\":"			"[],"
 			"\"opportunistic\":"		"true,"
 			"\"tls\":"			"true,"
 			"\"h2q_oflow_txcr\":"		"true,"
@@ -182,10 +176,10 @@ static const char * const default_ss_policy =
 			"\"h2q_oflow_txcr\":"		"true,"
 			"\"http_auth_header\":"		"\"authorization:\","
 			"\"http_auth_preamble\":"	"\"Bearer \","
-			"\"use_auth\":"			"\"lwa\","
 			"\"nailed_up\":"		"true,"
 			"\"long_poll\":"		"true,"
 			"\"retry\":"			"\"default\","
+			"\"plugins\":"			"[],"
 			"\"tls\":"			"true,"
 			"\"tls_trust_store\":"		"\"avs_via_starfield\""
 		"}},"
@@ -197,16 +191,13 @@ static const char * const default_ss_policy =
 			"\"http_url\":"			"\"v20160207/events\","
 			"\"http_no_content_length\":"	"true,"
 			"\"h2q_oflow_txcr\":"		"true,"
-			"\"use_auth\":"			"\"lwa\","
 			"\"http_auth_header\":"		"\"authorization:\","
 			"\"http_auth_preamble\":"	"\"Bearer \","
 			"\"http_multipart_name\":"	"\"metadata\","
 			"\"http_mime_content_type\":"	"\"application/json; charset=UTF-8\","
-#if 1
-			"\"http_multipart_ss_in\":"	"true,"
-#endif
 			"\"rideshare\":"		"\"avs_audio\","
 			"\"retry\":"			"\"default\","
+			"\"plugins\":"			"[],"
 			"\"tls\":"			"true,"
 			"\"tls_trust_store\":"		"\"avs_via_starfield\""
 		"}},"
@@ -217,12 +208,9 @@ static const char * const default_ss_policy =
 			"\"http_method\":"		"\"POST\","
 			"\"http_url\":"			"\"v20160207/events\","
 			"\"http_no_content_length\":"	"true,"
+			"\"plugins\":"			"[],"
 			"\"tls\":"			"true,"
 			"\"h2q_oflow_txcr\":"		"true,"
-#if 1
-			"\"http_multipart_ss_in\":"	"true,"
-#endif
-			"\"use_auth\":"			"\"lwa\","
 			"\"http_auth_header\":"		"\"authorization:\","
 			"\"http_auth_preamble\":"	"\"Bearer \","
 			"\"http_multipart_name\":"	"\"audio\","
@@ -341,12 +329,15 @@ int main(int argc, const char **argv)
 	}
 #endif
 
+#if defined(LWS_WITH_DETAILED_LATENCY)
+	info.detailed_latency_cb = lws_det_lat_plot_cb;
+	info.detailed_latency_filepath = "/tmp/lws-latency-ssproxy";
+#endif
+
 	/* integrate us with lws system state management when context created */
 	nl.name = "app";
 	nl.notify_cb = app_system_state_nf;
 	info.register_notifier_list = app_notifier_list;
-
-	puts(default_ss_policy);
 
 	context = lws_create_context(&info);
 	if (!context) {

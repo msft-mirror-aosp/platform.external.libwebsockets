@@ -144,9 +144,6 @@ enum {
 	LWS_FZ_ERR_SEEK_COMPRESSED,
 };
 
-#define eff_size(_priv) (_priv->hdr.method == ZIP_COMPRESSION_METHOD_STORE ? \
-				  _priv->hdr.uncomp_size : _priv->hdr.comp_size)
-
 static uint16_t
 get_u16(void *p)
 {
@@ -234,7 +231,7 @@ lws_fops_zip_scan(lws_fops_zip_t priv, const char *name, int len)
 			return LWS_FZ_ERR_NAME_TOO_LONG;
 
 		if (priv->zip_fop_fd->fops->LWS_FOP_READ(priv->zip_fop_fd,
-							&amount, buf, (unsigned int)len))
+							&amount, buf, len))
 			return LWS_FZ_ERR_NAME_READ;
 		if ((int)amount != len)
 			return LWS_FZ_ERR_NAME_READ;
@@ -267,7 +264,7 @@ lws_fops_zip_scan(lws_fops_zip_t priv, const char *name, int len)
 			return LWS_FZ_ERR_CONTENT_SANITY;
 
 		if (lws_vfs_file_seek_set(priv->zip_fop_fd,
-					  (lws_fileofs_t)priv->content_start) < 0)
+					  priv->content_start) < 0)
 			return LWS_FZ_ERR_CONTENT_SEEK;
 
 		/* we are aligned at the start of the content */
@@ -278,11 +275,11 @@ lws_fops_zip_scan(lws_fops_zip_t priv, const char *name, int len)
 
 next:
 		if (i && lws_vfs_file_seek_set(priv->zip_fop_fd,
-					       (lws_fileofs_t)priv->content_start +
-					       (ZC_DIRECTORY_LENGTH +
+					       priv->content_start +
+					       ZC_DIRECTORY_LENGTH +
 					       priv->hdr.filename_len +
 					       priv->hdr.extra +
-					       priv->hdr.file_com_len)) < 0)
+					       priv->hdr.file_com_len) < 0)
 			return LWS_FZ_ERR_SCAN_SEEK;
 	}
 
@@ -306,7 +303,7 @@ lws_fops_zip_reset_inflate(lws_fops_zip_t priv)
 		return LWS_FZ_ERR_ZLIB_INIT;
 	}
 
-	if (lws_vfs_file_seek_set(priv->zip_fop_fd, (lws_fileofs_t)priv->content_start) < 0)
+	if (lws_vfs_file_seek_set(priv->zip_fop_fd, priv->content_start) < 0)
 		return LWS_FZ_ERR_CONTENT_SEEK;
 
 	priv->exp_uncomp_pos = 0;
@@ -338,13 +335,13 @@ lws_fops_zip_open(const struct lws_plat_file_ops *fops, const char *vfs_path,
 	m = sizeof(rp) - 1;
 	if ((vpath - vfs_path - 1) < m)
 		m = lws_ptr_diff(vpath, vfs_path) - 1;
-	lws_strncpy(rp, vfs_path, (unsigned int)m + 1);
+	lws_strncpy(rp, vfs_path, m + 1);
 
 	/* open the zip file itself using the incoming fops, not fops_zip */
 
 	priv->zip_fop_fd = fops->LWS_FOP_OPEN(fops, rp, NULL, &local_flags);
 	if (!priv->zip_fop_fd) {
-		lwsl_err("%s: unable to open zip %s\n", __func__, rp);
+		lwsl_err("unable to open zip %s\n", rp);
 		goto bail1;
 	}
 
@@ -488,9 +485,9 @@ lws_fops_zip_close(lws_fop_fd_t *fd)
 static lws_fileofs_t
 lws_fops_zip_seek_cur(lws_fop_fd_t fd, lws_fileofs_t offset_from_cur_pos)
 {
-	fd->pos = (lws_filepos_t)((lws_fileofs_t)fd->pos + offset_from_cur_pos);
+	fd->pos += offset_from_cur_pos;
 
-	return (lws_fileofs_t)fd->pos;
+	return fd->pos;
 }
 
 static int
@@ -529,8 +526,11 @@ lws_fops_zip_read(lws_fop_fd_t fd, lws_filepos_t *amount, uint8_t *buf,
 spin:
 		if (!priv->inflate.avail_in) {
 			rlen = sizeof(priv->rbuf);
-			if (rlen > eff_size(priv) - (cur - priv->content_start))
-				rlen = eff_size(priv) - (cur - priv->content_start);
+			if (rlen > priv->hdr.comp_size -
+				   (cur - priv->content_start))
+				rlen = priv->hdr.comp_size -
+				       (priv->hdr.comp_size -
+					priv->content_start);
 
 			if (priv->zip_fop_fd->fops->LWS_FOP_READ(
 					priv->zip_fop_fd, &ramount, priv->rbuf,
@@ -632,14 +632,13 @@ spin:
 
 	lwsl_info("%s: store\n", __func__);
 
-	if (len > eff_size(priv) - cur)
-		len = eff_size(priv) - cur;
+	if (len > priv->hdr.uncomp_size - (cur - priv->content_start))
+		len = priv->hdr.comp_size - (priv->hdr.comp_size -
+					     priv->content_start);
 
 	if (priv->zip_fop_fd->fops->LWS_FOP_READ(priv->zip_fop_fd,
 						 amount, buf, len))
 		return LWS_FZ_ERR_READ_CONTENT;
-
-	fd->pos += *amount;
 
 	return 0;
 }
