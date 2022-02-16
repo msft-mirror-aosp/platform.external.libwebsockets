@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "private-lib-core.h"
-
 #include "ssl_x509.h"
 #include "ssl_methods.h"
 #include "ssl_dbg.h"
@@ -106,7 +104,7 @@ X509* d2i_X509(X509 **cert, const unsigned char *buffer, long len)
         m = 1;
     }
 
-    ret = X509_METHOD_CALL(load, x, buffer, (int)len);
+    ret = X509_METHOD_CALL(load, x, buffer, len);
     if (ret) {
         SSL_DEBUG(SSL_PKEY_ERROR_LEVEL, "X509_METHOD_CALL(load) return %d", ret);
         goto failed2;
@@ -176,14 +174,20 @@ int SSL_CTX_add_client_CA(SSL_CTX *ctx, X509 *x)
 int SSL_CTX_add_client_CA_ASN1(SSL_CTX *ctx, int len,
                 const unsigned char *d)
 {
-	SSL_ASSERT1(ctx);
+	X509 *x;
 
-	if (!d2i_X509(&ctx->client_CA, d, len)) {
+	x = d2i_X509(NULL, d, len);
+	if (!x) {
 		SSL_DEBUG(SSL_PKEY_ERROR_LEVEL, "d2i_X509() return NULL");
 		return 0;
 	}
+    SSL_ASSERT1(ctx);
 
-	return 1;
+    X509_free(ctx->client_CA);
+
+    ctx->client_CA = x;
+
+    return 1;
 }
 
 /**

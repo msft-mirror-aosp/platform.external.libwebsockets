@@ -19,7 +19,7 @@
 
 static struct lws_protocols protocols[] = {
 	LWS_PLUGIN_PROTOCOL_MINIMAL_SERVER_ECHO,
-	LWS_PROTOCOL_LIST_TERM
+	{ NULL, NULL, 0, 0 } /* terminator */
 };
 
 static int interrupted, port = 7681, options;
