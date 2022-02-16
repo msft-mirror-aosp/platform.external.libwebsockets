@@ -28,9 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#if !defined(WIN32)
 #include <unistd.h>
-#endif
 #include <errno.h>
 
 static uint8_t sendbuf[4096];
@@ -42,7 +40,7 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason,
 			void *user, void *in, size_t len)
 {
 	ssize_t n;
-	lws_sockfd_type fd;
+	int fd;
 
 	switch (reason) {
 
@@ -86,13 +84,8 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason,
 			break;
 
 		fd = lws_get_socket_fd(wsi);
-#if defined(WIN32)
-		if ((int)fd < 0)
-			break;
-#else
 		if (fd < 0) /* keep Coverity happy: actually it cannot be < 0 */
 			break;
-#endif
 
 		/*
 		 * We can write directly on the UDP socket, specifying
@@ -109,12 +102,7 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason,
 #if defined(WIN32)
 				(const char *)
 #endif
-			sendbuf,
-#if defined(WIN32)
-			(int)
-#endif
-			sendlen, 0, sa46_sockaddr(&udp.sa46),
-			sa46_socklen(&udp.sa46));
+			sendbuf, sendlen, 0, &udp.sa, udp.salen);
 		if (n < (ssize_t)len)
 			lwsl_notice("%s: send returned %d\n", __func__, (int)n);
 		break;
@@ -127,8 +115,8 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason,
 }
 
 static struct lws_protocols protocols[] = {
-	{ "raw-test", callback_raw_test, 0, 0, 0, NULL, 0 },
-	LWS_PROTOCOL_LIST_TERM
+	{ "raw-test", callback_raw_test, 0, 0 },
+	{ NULL, NULL, 0, 0 } /* terminator */
 };
 
 static int interrupted;
@@ -182,8 +170,7 @@ int main(int argc, const char **argv)
 	 * Create our own "foreign" UDP socket bound to 7681/udp
 	 */
 	if (!lws_create_adopt_udp(vhost, NULL, 7681, LWS_CAUDP_BIND,
-				  protocols[0].name, NULL, NULL, NULL, NULL,
-				  "user")) {
+				  protocols[0].name, NULL, NULL, NULL, NULL)) {
 		lwsl_err("%s: foreign socket adoption failed\n", __func__);
 		goto bail;
 	}
