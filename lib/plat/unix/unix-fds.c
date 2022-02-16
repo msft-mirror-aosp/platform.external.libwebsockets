@@ -49,84 +49,10 @@ wsi_from_fd(const struct lws_context *context, int fd)
 	return NULL;
 }
 
-#if defined(_DEBUG)
-int
-sanity_assert_no_wsi_traces(const struct lws_context *context, struct lws *wsi)
-{
-	struct lws **p, **done;
-
-	if (!context->max_fds_unrelated_to_ulimit)
-		/* can't tell */
-		return 0;
-
-	/* slow fds handling */
-
-	p = context->lws_lookup;
-	done = &p[context->max_fds];
-
-	/* confirm the wsi doesn't already exist */
-
-	while (p != done && *p != wsi)
-		p++;
-
-	if (p == done)
-		return 0;
-
-	assert(0); /* this wsi is still mentioned inside lws */
-
-	return 1;
-}
-
-int
-sanity_assert_no_sockfd_traces(const struct lws_context *context,
-			       lws_sockfd_type sfd)
-{
-#if LWS_MAX_SMP > 1
-	/*
-	 * We can't really do this test... another thread can accept and
-	 * reuse the closed fd
-	 */
-	return 0;
-#else
-	struct lws **p, **done;
-
-	if (sfd == LWS_SOCK_INVALID || !context->lws_lookup)
-		return 0;
-
-	if (!context->max_fds_unrelated_to_ulimit &&
-	    context->lws_lookup[sfd - lws_plat_socket_offset()]) {
-		assert(0); /* the fd is still in use */
-		return 1;
-	}
-
-	/* slow fds handling */
-
-	p = context->lws_lookup;
-	done = &p[context->max_fds];
-
-	/* confirm the sfd not already in use */
-
-	while (p != done && (!*p || (*p)->desc.sockfd != sfd))
-		p++;
-
-	if (p == done)
-		return 0;
-
-	assert(0); /* this fd is still in the tables */
-
-	return 1;
-#endif
-}
-#endif
-
-
 int
 insert_wsi(const struct lws_context *context, struct lws *wsi)
 {
 	struct lws **p, **done;
-
-	if (sanity_assert_no_wsi_traces(context, wsi))
-		return 0;
 
 	if (!context->max_fds_unrelated_to_ulimit) {
 		assert(context->lws_lookup[wsi->desc.sockfd -
@@ -143,12 +69,28 @@ insert_wsi(const struct lws_context *context, struct lws *wsi)
 	p = context->lws_lookup;
 	done = &p[context->max_fds];
 
-	/* confirm fd isn't already in use by a wsi */
+#if defined(_DEBUG)
 
-	if (sanity_assert_no_sockfd_traces(context, wsi->desc.sockfd))
-		return 0;
+	/* confirm it doesn't already exist */
 
+	while (p != done && *p != wsi)
+		p++;
+
+	assert(p == done);
 	p = context->lws_lookup;
+
+	/* confirm fd doesn't already exist */
+
+	while (p != done && (!*p || (*p)->desc.sockfd != wsi->desc.sockfd))
+		p++;
+
+	if (p != done) {
+		lwsl_err("%s: wsi %p already says it has fd %d\n",
+				__func__, *p, wsi->desc.sockfd);
+		assert(0);
+	}
+	p = context->lws_lookup;
+#endif
 
 	/* find an empty slot */
 
@@ -165,8 +107,6 @@ insert_wsi(const struct lws_context *context, struct lws *wsi)
 	return 0;
 }
 
-
-
 void
 delete_from_fd(const struct lws_context *context, int fd)
 {
@@ -174,8 +114,7 @@ delete_from_fd(const struct lws_context *context, int fd)
 	struct lws **p, **done;
 
 	if (!context->max_fds_unrelated_to_ulimit) {
-		if (context->lws_lookup)
-			context->lws_lookup[fd - lws_plat_socket_offset()] = NULL;
+		context->lws_lookup[fd - lws_plat_socket_offset()] = NULL;
 
 		return;
 	}
@@ -183,8 +122,6 @@ delete_from_fd(const struct lws_context *context, int fd)
 	/* slow fds handling */
 
 	p = context->lws_lookup;
-	assert(p);
-
 	done = &p[context->max_fds];
 
 	/* find the match */
@@ -192,7 +129,9 @@ delete_from_fd(const struct lws_context *context, int fd)
 	while (p != done && (!*p || (*p)->desc.sockfd != fd))
 		p++;
 
-	if (p != done)
+	if (p == done)
+		lwsl_err("%s: fd %d not found\n", __func__, fd);
+	else
 		*p = NULL;
 
 #if defined(_DEBUG)
@@ -206,30 +145,6 @@ delete_from_fd(const struct lws_context *context, int fd)
 		assert(0);
 	}
 #endif
-}
-
-void
-delete_from_fdwsi(const struct lws_context *context, struct lws *wsi)
-{
-
-	struct lws **p, **done;
-
-	if (!context->max_fds_unrelated_to_ulimit)
-		return;
-
-
-	/* slow fds handling */
-
-	p = context->lws_lookup;
-	done = &p[context->max_fds];
-
-	/* find the match */
-
-	while (p != done && (!*p || (*p) != wsi))
-		p++;
-
-	if (p != done)
-		*p = NULL;
 }
 
 void

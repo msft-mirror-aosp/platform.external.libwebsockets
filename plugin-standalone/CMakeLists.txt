@@ -1,5 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12)
-find_package(libwebsockets CONFIG REQUIRED)
+cmake_minimum_required(VERSION 2.8)
 
 if(NOT DEFINED CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type")
@@ -57,9 +56,8 @@ set(CMAKE_C_FLAGS "-fPIC ${CMAKE_C_FLAGS}")
 source_group("Headers Private"   FILES ${PLUGIN_HDR})
 source_group("Sources"   FILES ${PLUGIN_SRCS})
 add_library(${PLUGIN_NAME} SHARED ${PLUGIN_SRCS} ${PLUGIN_HDR})
-target_compile_definitions(${PLUGIN_NAME} PRIVATE LWS_BUILDING_SHARED)
 
-target_link_libraries(${PLUGIN_NAME} -lwebsockets ${LIBWEBSOCKETS_DEP_LIBS})
+target_link_libraries(${PLUGIN_NAME} -lwebsockets)
 
 # Set test app specific defines.
 set_property(TARGET ${PLUGIN_NAME}

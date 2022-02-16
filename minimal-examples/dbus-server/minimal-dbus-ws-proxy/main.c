@@ -26,7 +26,7 @@
 static int interrupted;
 static struct lws_protocols protocols[] = {
 	LWS_PLUGIN_PROTOCOL_MINIMAL_DBUS_WSPROXY,
-	LWS_PROTOCOL_LIST_TERM
+	{ NULL, NULL, 0, 0 } /* terminator */
 };
 
 /*
@@ -79,6 +79,7 @@ int main(int argc, const char **argv)
 	info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT |
 		LWS_SERVER_OPTION_HTTP_HEADERS_SECURITY_BEST_PRACTICES_ENFORCE;
 	info.port = CONTEXT_PORT_NO_LISTEN;
+	info.ws_ping_pong_interval = 30;
 	info.protocols = protocols;
 	info.pvo = &pvo;
 

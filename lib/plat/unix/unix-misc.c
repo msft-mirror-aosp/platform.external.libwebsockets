@@ -27,18 +27,6 @@
 #endif
 #include "private-lib-core.h"
 
-/*
- * Normally you don't want this, use lws_sul instead inside the event loop.
- * But sometimes for drivers it makes sense, so there's an internal-only
- * crossplatform api for it.
- */
-
-void
-lws_msleep(unsigned int ms)
-{
-        usleep((unsigned int)(ms * LWS_US_PER_MS));
-}
-
 lws_usec_t
 lws_now_usecs(void)
 {
@@ -95,18 +83,17 @@ void lwsl_emit_syslog(int level, const char *line)
 
 int
 lws_plat_write_cert(struct lws_vhost *vhost, int is_key, int fd, void *buf,
-			size_t len)
+			int len)
 {
-	ssize_t n;
+	int n;
 
 	n = write(fd, buf, len);
 
-	if (n < 0 || fsync(fd))
-		return 1;
+	fsync(fd);
 	if (lseek(fd, 0, SEEK_SET) < 0)
 		return 1;
 
-	return (size_t)n != len;
+	return n != len;
 }
 
 
@@ -115,28 +102,3 @@ lws_plat_recommended_rsa_bits(void)
 {
 	return 4096;
 }
-
-/*
- * Platform-specific ntpclient server configuration
- */
-
-int
-lws_plat_ntpclient_config(struct lws_context *context)
-{
-#if defined(LWS_HAVE_GETENV)
-	char *ntpsrv = getenv("LWS_NTP_SERVER");
-
-	if (ntpsrv && strlen(ntpsrv) < 64) {
-		lws_system_blob_t *blob = lws_system_get_blob(context,
-                                            LWS_SYSBLOB_TYPE_NTP_SERVER, 0);
-		if (!blob)
-			return 0;
-
-		lws_system_blob_direct_set(blob, (const uint8_t *)ntpsrv,
-					    strlen(ntpsrv));
-		return 1;
-	}
-#endif
-	return 0;
-}
-
