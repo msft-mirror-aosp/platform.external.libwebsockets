@@ -52,14 +52,14 @@ cb(struct lejp_ctx *ctx, char reason)
 	*p = '\0';
 
 	if (reason & LEJP_FLAG_CB_IS_VALUE) {
-		p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "   value '%s' ", ctx->buf);
+		p += lws_snprintf(p, p - end, "   value '%s' ", ctx->buf);
 		if (ctx->ipos) {
 			int n;
 
-			p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "(array indexes: ");
+			p += lws_snprintf(p, p - end, "(array indexes: ");
 			for (n = 0; n < ctx->ipos; n++)
-				p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), "%d ", ctx->i[n]);
-			p += lws_snprintf(p, lws_ptr_diff_size_t(end, p), ") ");
+				p += lws_snprintf(p, p - end, "%d ", ctx->i[n]);
+			p += lws_snprintf(p, p - end, ") ");
 		}
 		lwsl_notice("%s (%s)\r\n", buf,
 		       reason_names[(unsigned int)
@@ -88,7 +88,7 @@ cb(struct lejp_ctx *ctx, char reason)
 int
 main(int argc, char *argv[])
 {
-	int fd, n = 1, ret = 1, m = 0;
+	int fd, n = 1, ret = 1, m;
 	struct lejp_ctx ctx;
 	char buf[128];
 
@@ -102,7 +102,7 @@ main(int argc, char *argv[])
 	fd = 0;
 
 	while (n > 0) {
-		n = (int)read(fd, buf, sizeof(buf));
+		n = read(fd, buf, sizeof(buf));
 		if (n <= 0)
 			continue;
 
@@ -112,7 +112,7 @@ main(int argc, char *argv[])
 			goto bail;
 		}
 	}
-	lwsl_notice("okay (%d)\n", m);
+	lwsl_notice("okay\n");
 	ret = 0;
 bail:
 	lejp_destruct(&ctx);

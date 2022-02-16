@@ -50,13 +50,12 @@ enum {
 
 struct lws;
 
-/* wsi who is owns the cgi points to an lws_cgi */
+/* wsi who is master of the cgi points to an lws_cgi */
 
 struct lws_cgi {
 	struct lws_cgi *cgi_list;
 
-	struct lws_spawn_piped		*lsp;
-	lws_sorted_usec_list_t		sul_grace;
+	struct lws_spawn_piped *lsp;
 
 	struct lws *wsi; /* owner */
 	unsigned char *headers_buf;
