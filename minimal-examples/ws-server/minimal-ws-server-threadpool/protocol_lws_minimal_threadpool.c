@@ -34,8 +34,6 @@
 
 struct per_vhost_data__minimal {
 	struct lws_threadpool *tp;
-	struct lws_context *context;
-	lws_sorted_usec_list_t sul;
 	const char *config;
 };
 
@@ -44,10 +42,6 @@ struct task_data {
 
 	uint64_t pos, end;
 };
-
-#if defined(WIN32)
-static void usleep(unsigned long l) { Sleep(l / 1000); }
-#endif
 
 /*
  * Create the private data for the task
@@ -135,22 +129,6 @@ task_function(void *user, enum lws_threadpool_task_status s)
 	return LWS_TP_RETURN_CHECKING_IN;
 }
 
-
-static void
-sul_tp_dump(struct lws_sorted_usec_list *sul)
-{
-	struct per_vhost_data__minimal *vhd =
-		lws_container_of(sul, struct per_vhost_data__minimal, sul);
-	/*
-	 * in debug mode, dump the threadpool stat to the logs once
-	 * a second
-	 */
-	lws_threadpool_dump(vhd->tp);
-	lws_sul_schedule(vhd->context, 0, &vhd->sul,
-			 sul_tp_dump, LWS_US_PER_SEC);
-}
-
-
 static int
 callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 			void *user, void *in, size_t len)
@@ -177,8 +155,6 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 		if (!vhd)
 			return 1;
 
-		vhd->context = lws_get_context(wsi);
-
 		/* recover the pointer to the globals struct */
 		pvo = lws_pvo_search(
 			(const struct lws_protocol_vhost_options *)in,
@@ -199,14 +175,27 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 		if (!vhd->tp)
 			return 1;
 
-		lws_sul_schedule(vhd->context, 0, &vhd->sul,
-				 sul_tp_dump, LWS_US_PER_SEC);
+		lws_timed_callback_vh_protocol(lws_get_vhost(wsi),
+					       lws_get_protocol(wsi),
+					       LWS_CALLBACK_USER, 1);
+
 		break;
 
 	case LWS_CALLBACK_PROTOCOL_DESTROY:
 		lws_threadpool_finish(vhd->tp);
 		lws_threadpool_destroy(vhd->tp);
-		lws_sul_cancel(&vhd->sul);
+		break;
+
+	case LWS_CALLBACK_USER:
+
+		/*
+		 * in debug mode, dump the threadpool stat to the logs once
+		 * a second
+		 */
+		lws_threadpool_dump(vhd->tp);
+		lws_timed_callback_vh_protocol(lws_get_vhost(wsi),
+					       lws_get_protocol(wsi),
+					       LWS_CALLBACK_USER, 1);
 		break;
 
 	case LWS_CALLBACK_ESTABLISHED:
@@ -248,7 +237,7 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 
 	case LWS_CALLBACK_WS_SERVER_DROP_PROTOCOL:
 		lwsl_debug("LWS_CALLBACK_WS_SERVER_DROP_PROTOCOL: %p\n", wsi);
-		lws_threadpool_dequeue_task(lws_threadpool_get_task_wsi(wsi));
+		lws_threadpool_dequeue(wsi);
 		break;
 
 	case LWS_CALLBACK_SERVER_WRITEABLE:
@@ -264,10 +253,7 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 		 * private task data.
 		 */
 
-		task = lws_threadpool_get_task_wsi(wsi);
-		if (!task)
-			break;
-		n = (int)lws_threadpool_task_status(task, &_user);
+		n = lws_threadpool_task_status_wsi(wsi, &task, &_user);
 		lwsl_debug("%s: LWS_CALLBACK_SERVER_WRITEABLE: status %d\n",
 			   __func__, n);
 		switch(n) {
@@ -290,9 +276,9 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 
 		lws_set_timeout(wsi, PENDING_TIMEOUT_THREADPOOL_TASK, 5);
 
-		n = (int)strlen(priv->result + LWS_PRE);
+		n = strlen(priv->result + LWS_PRE);
 		m = lws_write(wsi, (unsigned char *)priv->result + LWS_PRE,
-			      (unsigned int)n, LWS_WRITE_TEXT);
+			      n, LWS_WRITE_TEXT);
 		if (m < n) {
 			lwsl_err("ERROR %d writing to ws socket\n", m);
 			lws_threadpool_task_sync(task, 1);
@@ -322,3 +308,36 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 		128, \
 		0, NULL, 0 \
 	}
+
+#if !defined (LWS_PLUGIN_STATIC)
+
+/* boilerplate needed if we are built as a dynamic plugin */
+
+static const struct lws_protocols protocols[] = {
+	LWS_PLUGIN_PROTOCOL_MINIMAL
+};
+
+int
+init_protocol_minimal(struct lws_context *context,
+		      struct lws_plugin_capability *c)
+{
+	if (c->api_magic != LWS_PLUGIN_API_MAGIC) {
+		lwsl_err("Plugin API %d, library API %d", LWS_PLUGIN_API_MAGIC,
+			 c->api_magic);
+		return 1;
+	}
+
+	c->protocols = protocols;
+	c->count_protocols = LWS_ARRAY_SIZE(protocols);
+	c->extensions = NULL;
+	c->count_extensions = 0;
+
+	return 0;
+}
+
+int
+destroy_protocol_minimal(struct lws_context *context)
+{
+	return 0;
+}
+#endif

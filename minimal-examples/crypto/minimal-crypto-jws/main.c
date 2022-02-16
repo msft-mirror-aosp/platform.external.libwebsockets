@@ -1,7 +1,7 @@
 /*
  * lws-crypto-jws
  *
- * Written in 2010-2020 by Andy Green <andy@warmcat.com>
+ * Written in 2010-2019 by Andy Green <andy@warmcat.com>
  *
  * This file is made available under the Creative Commons CC0 1.0
  * Universal Public Domain Dedication.
@@ -35,9 +35,7 @@ int main(int argc, const char **argv)
 	lwsl_user("LWS JWS example tool\n");
 
 	memset(&info, 0, sizeof info); /* otherwise uninitialized garbage */
-#if defined(LWS_WITH_NETWORK)
 	info.port = CONTEXT_PORT_NO_LISTEN;
-#endif
 	info.options = 0;
 
 	context = lws_create_context(&info);
@@ -69,14 +67,14 @@ int main(int argc, const char **argv)
 			return 1;
 		}
 
-		jws.map.len[LJWS_JOSE] = (uint32_t)
+		jws.map.len[LJWS_JOSE] =
 				lws_snprintf((char *)jws.map.buf[LJWS_JOSE],
-					     (unsigned int)temp_len, "{\"alg\":\"%s\"}", p);
+					     temp_len, "{\"alg\":\"%s\"}", p);
 		sign = 1;
 	}
 
 	in = lws_concat_temp(temp, temp_len);
-	n = (int)read(0, in, (unsigned int)temp_len);
+	n = read(0, in, temp_len);
 	if (n < 0) {
 		lwsl_err("Problem reading from stdin\n");
 		return 1;
@@ -101,7 +99,7 @@ int main(int argc, const char **argv)
 		/* add the plaintext from stdin to the map and a b64 version */
 
 		jws.map.buf[LJWS_PYLD] = in;
-		jws.map.len[LJWS_PYLD] = (unsigned int)n;
+		jws.map.len[LJWS_PYLD] = n;
 
 		if (lws_jws_encode_b64_element(&jws.map_b64, LJWS_PYLD,
 					       lws_concat_temp(temp, temp_len),
@@ -121,7 +119,7 @@ int main(int argc, const char **argv)
 
 		if (lws_jws_alloc_element(&jws.map_b64, LJWS_SIG,
 				      lws_concat_temp(temp, temp_len),
-				      &temp_len, (unsigned int)lws_base64_size(
+				      &temp_len, lws_base64_size(
 					 LWS_JWE_LIMIT_KEY_ELEMENT_BYTES), 0)) {
 			lwsl_err("%s: temp space too small\n", __func__);
 			goto bail1;
@@ -139,7 +137,7 @@ int main(int argc, const char **argv)
 			goto bail1;
 		}
 		/* set the actual b64 signature size */
-		jws.map_b64.len[LJWS_SIG] = (uint32_t)n;
+		jws.map_b64.len[LJWS_SIG] = n;
 
 		if (lws_cmdline_option(argc, argv, "-f"))
 			/* create the flattened representation */
@@ -154,11 +152,7 @@ int main(int argc, const char **argv)
 
 		/* dump the compact JWS representation on stdout */
 
-		if (write(1, compact,
-#if defined(WIN32)
-				(unsigned int)
-#endif
-				strlen(compact))  < 0) {
+		if (write(1, compact, strlen(compact))  < 0) {
 			lwsl_err("Write stdout failed\n");
 			goto bail1;
 		}
@@ -167,7 +161,7 @@ int main(int argc, const char **argv)
 		/* perform the verify directly on the compact representation */
 
 		if (lws_cmdline_option(argc, argv, "-f")) {
-			if (lws_jws_sig_confirm_json(in, (unsigned int)n, &jws, &jwk, context,
+			if (lws_jws_sig_confirm_json(in, n, &jws, &jwk, context,
 					lws_concat_temp(temp, temp_len),
 					&temp_len) < 0) {
 				lwsl_notice("%s: confirm rsa sig failed\n",
@@ -183,7 +177,7 @@ int main(int argc, const char **argv)
 			}
 		} else {
 			if (lws_jws_sig_confirm_compact_b64(in,
-					lws_concat_used(temp, (unsigned int)temp_len),
+					lws_concat_used(temp, temp_len),
 					&map, &jwk, context,
 					lws_concat_temp(temp, temp_len),
 					&temp_len) < 0) {
