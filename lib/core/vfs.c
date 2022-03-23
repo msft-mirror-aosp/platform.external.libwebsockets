@@ -53,8 +53,7 @@ lws_vfs_file_seek_set(lws_fop_fd_t fop_fd, lws_fileofs_t offset)
 {
 	lws_fileofs_t ofs;
 
-	ofs = fop_fd->fops->LWS_FOP_SEEK_CUR(fop_fd,
-			offset - (lws_fileofs_t)fop_fd->pos);
+	ofs = fop_fd->fops->LWS_FOP_SEEK_CUR(fop_fd, offset - fop_fd->pos);
 
 	return ofs;
 }
@@ -63,8 +62,8 @@ lws_vfs_file_seek_set(lws_fop_fd_t fop_fd, lws_fileofs_t offset)
 lws_fileofs_t
 lws_vfs_file_seek_end(lws_fop_fd_t fop_fd, lws_fileofs_t offset)
 {
-	return fop_fd->fops->LWS_FOP_SEEK_CUR(fop_fd,
-			(lws_fileofs_t)fop_fd->len + (lws_fileofs_t)fop_fd->pos + offset);
+	return fop_fd->fops->LWS_FOP_SEEK_CUR(fop_fd, fop_fd->len +
+					      fop_fd->pos + offset);
 }
 
 
@@ -101,7 +100,7 @@ lws_vfs_select_fops(const struct lws_plat_file_ops *fops, const char *vfs_path,
 				if (p >= vfs_path + pf->fi[n].len)
 					if (!strncmp(p - (pf->fi[n].len - 1),
 						     pf->fi[n].sig,
-						     (unsigned int)(pf->fi[n].len - 1))) {
+						     pf->fi[n].len - 1)) {
 						*vpath = p + 1;
 						return pf;
 					}

@@ -33,7 +33,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
-#include <errno.h>
+
 /* import the whole of lws-plugin-sshd-base statically */
 #include <lws-plugin-sshd-static-build-includes.h>
 
@@ -44,11 +44,6 @@
  * The /etc path is the only reason we have to run as root.
  */
 #define TEST_SERVER_KEY_PATH "/etc/lws-test-sshd-server-key"
-struct per_vhost_data__lws_sshd_demo {
-	const struct lws_protocols *ssh_base_protocol;
-	int privileged_fd;
-};
-
 
 /*
  *  This is a copy of the lws ssh test public key, you can find it in
@@ -246,7 +241,7 @@ ssh_ops_get_server_key(struct lws *wsi, uint8_t *buf, size_t len)
 		return 0;
 	}
 
-	n = (int)read(fd, buf, len);
+	n = read(fd, buf, len);
 	if (n < 0) {
 		lwsl_err("%s: read failed: %d\n", __func__, n);
 		n = 0;
@@ -254,7 +249,7 @@ ssh_ops_get_server_key(struct lws *wsi, uint8_t *buf, size_t len)
 
 	close(fd);
 
-	return (size_t)n;
+	return n;
 }
 
 static size_t
@@ -271,7 +266,7 @@ ssh_ops_set_server_key(struct lws *wsi, uint8_t *buf, size_t len)
 		return 0;
 	}
 
-	n = (int)write(fd, buf, len);
+	n = write(fd, buf, len);
 	if (n < 0) {
 		lwsl_err("%s: read failed: %d\n", __func__, errno);
 		n = 0;
@@ -279,7 +274,7 @@ ssh_ops_set_server_key(struct lws *wsi, uint8_t *buf, size_t len)
 
 	close(fd);
 
-	return (size_t)n;
+	return n;
 }
 
 /* ops: auth */
@@ -289,7 +284,7 @@ ssh_ops_is_pubkey_authorized(const char *username, const char *type,
 				 const uint8_t *peer, int peer_len)
 {
 	char *aps, *p, *ps;
-	int n = (int)strlen(type), alen = 2048, ret = 2, len;
+	int n = strlen(type), alen = 2048, ret = 2, len;
 	size_t s = 0;
 
 	lwsl_info("%s: checking pubkey for %s\n", __func__, username);
@@ -310,7 +305,7 @@ ssh_ops_is_pubkey_authorized(const char *username, const char *type,
 	}
 	p = aps;
 
-	if (strncmp(p, type, (unsigned int)n)) {
+	if (strncmp(p, type, n)) {
 		lwsl_notice("lead-in string  does not match %s\n", type);
 		goto bail_p1;
 	}
@@ -323,7 +318,7 @@ ssh_ops_is_pubkey_authorized(const char *username, const char *type,
 
 
 	p++;
-	ps = malloc((unsigned int)alen);
+	ps = malloc(alen);
 	if (!ps) {
 		lwsl_notice("OOM 2\n");
 		free(aps);
@@ -347,7 +342,7 @@ ssh_ops_is_pubkey_authorized(const char *username, const char *type,
 	 * <len32>E<len32>N that the peer sends us
 	 */
 
-	if (lws_timingsafe_bcmp(peer, ps, (uint32_t)peer_len)) {
+	if (lws_timingsafe_bcmp(peer, ps, peer_len)) {
 		lwsl_info("factors mismatch\n");
 		goto bail;
 	}
@@ -430,10 +425,10 @@ ssh_ops_pty_req(void *_priv, struct lws_ssh_pty *pty)
 			break;
 		opc = *p++;
 
-		arg = (uint32_t)(*p++ << 24);
-		arg |= (uint32_t)(*p++ << 16);
-		arg |= (uint32_t)(*p++ << 8);
-		arg |= (uint32_t)(*p++);
+		arg = *p++ << 24;
+		arg |= *p++ << 16;
+		arg |= *p++ << 8;
+		arg |= *p++;
 
 		lwsl_debug("pty opc %d: 0x%x\n", opc, arg);
 
@@ -488,7 +483,7 @@ ssh_ops_child_process_io(void *_priv, struct lws *wsi,
 			uint8_t buf[256], *p, *d;
 
 			if (bytes != 1)
-				n = (int)(bytes / 2);
+				n = bytes / 2;
 			else
 				n = 1;
 			if (n > (int)sizeof(buf))
@@ -500,7 +495,7 @@ ssh_ops_child_process_io(void *_priv, struct lws *wsi,
 			m = lws_get_socket_fd(args->stdwsi[args->ch]);
 			if (m < 0)
 				return -1;
-			n = (int)read(m, buf, (unsigned int)n);
+			n = read(m, buf, n);
 			if (n < 0)
 				return -1;
 			if (n == 0) {
@@ -520,7 +515,7 @@ ssh_ops_child_process_io(void *_priv, struct lws *wsi,
 
 				*p++ = *d++;
 			}
-			n = lws_ptr_diff((void *)p, rp);
+			n = (void *)p - rp;
 			if (n < (int)bytes && priv->insert_lf) {
 				priv->insert_lf = 0;
 				*p++ = 0x0d;
@@ -530,14 +525,14 @@ ssh_ops_child_process_io(void *_priv, struct lws *wsi,
 			n = lws_get_socket_fd(args->stdwsi[args->ch]);
 			if (n < 0)
 				return -1;
-			n = (int)read(n, rp, bytes);
+			n = read(n, rp, bytes);
 			if (n < 0)
 				return -1;
 		}
 
 		lws_rx_flow_control(args->stdwsi[args->ch], 0);
 
-		lws_ring_bump_head(r, (unsigned int)n);
+		lws_ring_bump_head(r, n);
 		lws_callback_on_writable(wsi);
 		break;
 	}
@@ -589,11 +584,11 @@ ssh_ops_banner(char *buf, size_t max_len, char *lang, size_t max_lang_len)
 	int n = lws_snprintf(buf, max_len, "\n"
 		      " |\\---/|  lws-ssh Test Server\n"
 		      " | o_o |  SSH Terminal Server\n"
-		      "  \\_^_/   Copyright (C) 2017-2020 Crash Barrier Ltd\n\n");
+		      "  \\_^_/   Copyright (C) 2017 Crash Barrier Ltd\n\n");
 
 	lws_snprintf(lang, max_lang_len, "en/US");
 
-	return (size_t)n;
+	return n;
 }
 
 static void
@@ -650,85 +645,6 @@ void sighandler(int sig)
 	lws_cancel_service(context);
 }
 
-static int
-callback_lws_sshd_demo(struct lws *wsi, enum lws_callback_reasons reason,
-		       void *user, void *in, size_t len)
-{
-	struct per_vhost_data__lws_sshd_demo *vhd =
-			(struct per_vhost_data__lws_sshd_demo *)
-			lws_protocol_vh_priv_get(lws_get_vhost(wsi),
-						 lws_get_protocol(wsi));
-
-	switch (reason) {
-	case LWS_CALLBACK_PROTOCOL_INIT:
-		vhd = lws_protocol_vh_priv_zalloc(lws_get_vhost(wsi),
-						  lws_get_protocol(wsi),
-				sizeof(struct per_vhost_data__lws_sshd_demo));
-		if (!vhd)
-			return 0;
-		/*
-		 * During this we still have the privs / caps we were started
-		 * with.  So open an fd on the server key, either just for read
-		 * or for creat / trunc if doesn't exist.  This allows us to
-		 * deal with it down /etc/.. when just after this we will lose
-		 * the privileges needed to read / write /etc/...
-		 */
-		vhd->privileged_fd = lws_open(TEST_SERVER_KEY_PATH, O_RDONLY);
-		if (vhd->privileged_fd == -1)
-			vhd->privileged_fd = lws_open(TEST_SERVER_KEY_PATH,
-					O_CREAT | O_TRUNC | O_RDWR, 0600);
-		if (vhd->privileged_fd == -1) {
-			lwsl_warn("%s: Can't open %s\n", __func__,
-				 TEST_SERVER_KEY_PATH);
-			return 0;
-		}
-		break;
-
-	case LWS_CALLBACK_PROTOCOL_DESTROY:
-		if (vhd)
-			close(vhd->privileged_fd);
-		break;
-
-	case LWS_CALLBACK_VHOST_CERT_AGING:
-		break;
-
-	case LWS_CALLBACK_EVENT_WAIT_CANCELLED:
-		break;
-
-	default:
-		if (!vhd->ssh_base_protocol) {
-			vhd->ssh_base_protocol = lws_vhost_name_to_protocol(
-							lws_get_vhost(wsi),
-							"lws-ssh-base");
-			if (vhd->ssh_base_protocol)
-				user = lws_adjust_protocol_psds(wsi,
-				vhd->ssh_base_protocol->per_session_data_size);
-		}
-
-		if (vhd->ssh_base_protocol)
-			return vhd->ssh_base_protocol->callback(wsi, reason,
-								user, in, len);
-		else
-			lwsl_notice("can't find lws-ssh-base\n");
-		break;
-	}
-
-	return 0;
-}
-
-
-const struct lws_protocols lws_sshd_demo_protocols[] = {
-	{
-		"lws-sshd-demo",
-		callback_lws_sshd_demo,
-		0,
-		1024, /* rx buf size must be >= permessage-deflate rx size */
-		0, (void *)&ssh_ops, 0
-	}
-
-};
-
-
 int main()
 {
 	static struct lws_context_creation_info info;
@@ -761,7 +677,7 @@ int main()
 	info.port = 2200;
 	info.options = LWS_SERVER_OPTION_ONLY_RAW;
 	info.vhost_name = "sshd";
-	info.protocols = lws_sshd_demo_protocols;
+	info.protocols = protocols_sshd;
 	info.pvo = &pvo_ssh;
 
 	vh_sshd = lws_create_vhost(context, &info);
