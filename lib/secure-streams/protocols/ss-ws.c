@@ -28,14 +28,10 @@ static int
 secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 	     void *in, size_t len)
 {
-#if defined(LWS_WITH_SERVER)
-	struct lws_context_per_thread *pt = &wsi->a.context->pt[(int)wsi->tsi];
-#endif
 	lws_ss_handle_t *h = (lws_ss_handle_t *)lws_get_opaque_user_data(wsi);
 	uint8_t buf[LWS_PRE + 1400];
-	lws_ss_state_return_t r;
-	int f = 0, f1, n;
 	size_t buflen;
+	int f = 0, f1;
 
 	switch (reason) {
 
@@ -45,92 +41,39 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 			 in ? (char *)in : "(null)");
 		if (!h)
 			break;
-
-#if defined(LWS_WITH_CONMON)
-		lws_conmon_ss_json(h);
-#endif
-
-		r = lws_ss_event_helper(h, LWSSSCS_UNREACHABLE);
-		if (r == LWSSSSRET_DESTROY_ME)
-			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
-
+		lws_ss_event_helper(h, LWSSSCS_UNREACHABLE);
 		h->wsi = NULL;
-		r = lws_ss_backoff(h);
-		if (r != LWSSSSRET_OK)
-			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
+		lws_ss_backoff(h);
 		break;
 
-	case LWS_CALLBACK_CLOSED: /* server */
 	case LWS_CALLBACK_CLIENT_CLOSED:
 		if (!h)
 			break;
-		lws_sul_cancel(&h->sul_timeout);
-
-#if defined(LWS_WITH_CONMON)
-		lws_conmon_ss_json(h);
-#endif
-
-		r = lws_ss_event_helper(h, LWSSSCS_DISCONNECTED);
-		if (r == LWSSSSRET_DESTROY_ME)
-			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
-
+		f = lws_ss_event_helper(h, LWSSSCS_DISCONNECTED);
 		if (h->wsi)
 			lws_set_opaque_user_data(h->wsi, NULL);
 		h->wsi = NULL;
 
-#if defined(LWS_WITH_SERVER)
-		lws_pt_lock(pt, __func__);
-		lws_dll2_remove(&h->cli_list);
-		lws_pt_unlock(pt);
-#endif
-
-		if (reason == LWS_CALLBACK_CLIENT_CLOSED) {
-			if (h->policy &&
-			    !(h->policy->flags & LWSSSPOLF_OPPORTUNISTIC) &&
-#if defined(LWS_WITH_SERVER)
-			    !(h->info.flags & LWSSSINFLAGS_ACCEPTED) && /* not server */
-#endif
-			    !wsi->a.context->being_destroyed) {
-				r = lws_ss_backoff(h);
-				if (r != LWSSSSRET_OK)
-					return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
-				break;
-			}
-
-#if defined(LWS_WITH_SERVER)
-			if (h->info.flags & LWSSSINFLAGS_ACCEPTED) {
-				/*
-				 * was an accepted client connection to
-				 * our server, so the stream is over now
-				 */
-				lws_ss_destroy(&h);
-				return 0;
-			}
-#endif
-
+		if (f) {
+			lws_ss_destroy(&h);
+			break;
 		}
+
+		if (h->policy && !(h->policy->flags & LWSSSPOLF_OPPORTUNISTIC) &&
+		    !h->txn_ok && !wsi->context->being_destroyed)
+			lws_ss_backoff(h);
 		break;
 
-	case LWS_CALLBACK_ESTABLISHED:
 	case LWS_CALLBACK_CLIENT_ESTABLISHED:
 		h->retry = 0;
 		h->seqstate = SSSEQ_CONNECTED;
-		lws_sul_cancel(&h->sul);
-#if defined(LWS_WITH_SYS_METRICS)
-		/*
-		 * If any hanging caliper measurement, dump it, and free any tags
-		 */
-		lws_metrics_caliper_report_hist(h->cal_txn, (struct lws *)NULL);
-#endif
-		r = lws_ss_event_helper(h, LWSSSCS_CONNECTED);
-		if (r != LWSSSSRET_OK)
-			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
+		lws_ss_set_timeout_us(h, LWS_SET_TIMER_USEC_CANCEL);
+		lws_ss_event_helper(h, LWSSSCS_CONNECTED);
 		break;
 
-	case LWS_CALLBACK_RECEIVE:
 	case LWS_CALLBACK_CLIENT_RECEIVE:
 		// lwsl_user("LWS_CALLBACK_CLIENT_RECEIVE: read %d\n", (int)len);
-		if (!h || !h->info.rx)
+		if (!h)
 			return 0;
 		if (lws_is_first_fragment(wsi))
 			f |= LWSSS_FLAG_SOM;
@@ -140,17 +83,14 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 
 		h->subseq = 1;
 
-		r = h->info.rx(ss_to_userobj(h), (const uint8_t *)in, len, f);
-		if (r != LWSSSSRET_OK)
-			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
+		h->info.rx(ss_to_userobj(h), (const uint8_t *)in, len, f);
 
 		return 0; /* don't passthru */
 
-	case LWS_CALLBACK_SERVER_WRITEABLE:
 	case LWS_CALLBACK_CLIENT_WRITEABLE:
-		// lwsl_notice("%s: %s: WRITEABLE\n", __func__, lws_ss_tag(h));
-		if (!h || !h->info.tx)
+		if (!h)
 			return 0;
+		// lwsl_notice("%s: ss %p: WRITEABLE\n", __func__, h);
 
 		if (h->seqstate != SSSEQ_CONNECTED) {
 			lwsl_warn("%s: seqstate %d\n", __func__, h->seqstate);
@@ -158,23 +98,17 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		}
 
 		buflen = sizeof(buf) - LWS_PRE;
-		r = h->info.tx(ss_to_userobj(h),  h->txord++, buf + LWS_PRE,
-				  &buflen, &f);
-		if (r == LWSSSSRET_TX_DONT_SEND)
+		if (h->info.tx(ss_to_userobj(h),  h->txord++, buf + LWS_PRE,
+				&buflen, &f))
+			/* don't want to send anything */
 			return 0;
-		if (r != LWSSSSRET_OK)
-			return _lws_ss_handle_state_ret_CAN_DESTROY_HANDLE(r, wsi, &h);
 
-		f1 = lws_write_ws_flags(h->policy->u.http.u.ws.binary ?
-					   LWS_WRITE_BINARY : LWS_WRITE_TEXT,
+		f1 = lws_write_ws_flags(LWS_WRITE_BINARY,
 					!!(f & LWSSS_FLAG_SOM),
 					!!(f & LWSSS_FLAG_EOM));
 
-		n = lws_write(wsi, buf + LWS_PRE, buflen, (enum lws_write_protocol)f1);
-		if (n < (int)buflen) {
-			lwsl_info("%s: write failed %d %d\n", __func__,
-					n, (int)buflen);
-
+		if (lws_write(wsi, buf + LWS_PRE, buflen, f1) != (int)buflen) {
+			lwsl_err("%s: write failed\n", __func__);
 			return -1;
 		}
 
@@ -190,7 +124,8 @@ secstream_ws(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 const struct lws_protocols protocol_secstream_ws = {
 	"lws-secstream-ws",
 	secstream_ws,
-	0, 0, 0, NULL, 0
+	0,
+	0,
 };
 /*
  * Munge connect info according to protocol-specific considerations... this
@@ -208,42 +143,23 @@ secstream_connect_munge_ws(lws_ss_handle_t *h, char *buf, size_t len,
 			   struct lws_client_connect_info *i,
 			   union lws_ss_contemp *ct)
 {
-	const char *pbasis = h->policy->u.http.url;
-	size_t used_in, used_out;
-	lws_strexp_t exp;
+	lwsl_notice("%s\n", __func__);
 
-	/* i.path on entry is used to override the policy urlpath if not "" */
-
-	if (i->path[0])
-		pbasis = i->path;
-
-	if (!pbasis)
+	if (!h->policy->u.http.url)
 		return 0;
-
-	if (h->policy->flags & LWSSSPOLF_HTTP_CACHE_COOKIES)
-		i->ssl_connection |= LCCSCF_CACHE_COOKIES;
-
-	if (h->policy->flags & LWSSSPOLF_PRIORITIZE_READS)
-		i->ssl_connection |= LCCSCF_PRIORITIZE_READS;
 
 	/* protocol aux is the path part ; ws subprotocol name */
 
-	i->path = buf;
-	buf[0] = '/';
-
-	lws_strexp_init(&exp, (void *)h, lws_ss_exp_cb_metadata, buf + 1, len - 1);
-
-	if (lws_strexp_expand(&exp, pbasis, strlen(pbasis),
-			      &used_in, &used_out) != LSTRX_DONE)
-		return 1;
+	i->path = h->policy->u.http.url;
+	lws_snprintf(buf, len, "/%s", h->policy->u.http.url);
 
 	i->protocol = h->policy->u.http.u.ws.subprotocol;
 
-	lwsl_ss_info(h, "url %s, ws subprotocol %s", buf, i->protocol);
+	lwsl_notice("%s: url %s, ws subprotocol %s\n", __func__, buf, i->protocol);
 
 	return 0;
 }
 
 const struct ss_pcols ss_pcol_ws = {
-	"ws",  "http/1.1",  &protocol_secstream_ws, secstream_connect_munge_ws, 0, 0
+	"ws",  "http/1.1",  "lws-secstream-ws", secstream_connect_munge_ws
 };

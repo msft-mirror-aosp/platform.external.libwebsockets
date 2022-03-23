@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "private-lib-core.h"
-
 #include "ssl_stack.h"
 #include "ssl_dbg.h"
 #include "ssl_port.h"
