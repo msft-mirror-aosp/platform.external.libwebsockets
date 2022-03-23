@@ -1,4 +1,16 @@
 /*
+ * Adapted from tadns 1.1, from http://adns.sourceforge.net/
+ * Original license -->
+ *
+ * Copyright (c) 2004-2005 Sergey Lyubka <valenok@gmail.com>
+ *
+ * "THE BEER-WARE LICENSE" (Revision 42):
+ * Sergey Lyubka wrote this file.  As long as you retain this notice you
+ * can do whatever you want with this stuff. If we meet some day, and you think
+ * this stuff is worth it, you can buy me a beer in return.
+ *
+ * Integrated into lws, largely rewritten and relicensed (as allowed above)
+ *
  * libwebsockets - small server side websockets and web server implementation
  *
  * Copyright (C) 2010 - 2019 Andy Green <andy@warmcat.com>
@@ -23,71 +35,39 @@
  */
 
 #include "private-lib-core.h"
-#include <iphlpapi.h>
 
 lws_async_dns_server_check_t
 lws_plat_asyncdns_init(struct lws_context *context, lws_sockaddr46 *sa46)
 {
-	unsigned long ul;
-	FIXED_INFO *fi;
-	int n = 0;
-	DWORD dw;
+	char	subkey[512], dhcpns[512], ns[512], value[128], *key =
+	"SYSTEM\\ControlSet001\\Services\\Tcpip\\Parameters\\Interfaces";
+	HKEY	hKey, hSub;
+	LONG	err;
+	int	i, n;
 
-	ul = sizeof(fi);
+	if ((err = RegOpenKey(HKEY_LOCAL_MACHINE, key, &hKey)) != ERROR_SUCCESS) {
+		lwsl_err("%s: cannot open reg key %s: %d\n", __func__, key, err);
 
-	do {
-		fi = (FIXED_INFO *)lws_malloc(ul, __func__);
-		if (!fi)
-			goto oom;
+		return 1;
+	}
 
-		dw = GetNetworkParams(fi, &ul);
-		if (dw == NO_ERROR)
-			break;
-		if (dw != ERROR_BUFFER_OVERFLOW) {
-			lwsl_err("%s: GetNetworkParams says 0x%x\n", __func__,
-				 (unsigned int)dw);
+	for (i = 0; RegEnumKey(hKey, i, subkey, sizeof(subkey)) == ERROR_SUCCESS; i++) {
+		DWORD type, len = sizeof(value);
 
-			return LADNS_CONF_SERVER_UNKNOWN;
+		if (RegOpenKey(hKey, subkey, &hSub) == ERROR_SUCCESS &&
+		    (RegQueryValueEx(hSub, "NameServer", 0,
+		    &type, value, &len) == ERROR_SUCCESS ||
+		    RegQueryValueEx(hSub, "DhcpNameServer", 0,
+		    &type, value, &len) == ERROR_SUCCESS)) {
+			n = lws_sa46_parse_numeric_address(value, sa46)
+			RegCloseKey(hSub);
+			RegCloseKey(hKey);
+			return n == 0 ? LADNS_CONF_SERVER_CHANGED :
+					LADNS_CONF_SERVER_UNKNOWN;
 		}
-
-		lws_free(fi);
-		if (n++)
-			/* not twice or more */
-			goto oom;
-
-	} while (1);
-
-	/* if we got here, then we have it */
-
-	lwsl_info("%s: trying %s\n", __func__,
-			fi->DnsServerList.IpAddress.String);
-	n = lws_sa46_parse_numeric_address(
-			fi->DnsServerList.IpAddress.String, sa46);
-
-	lws_free(fi);
-
-	return n == 0 ? LADNS_CONF_SERVER_CHANGED :
-			LADNS_CONF_SERVER_UNKNOWN;
-
-oom:
-	lwsl_err("%s: OOM\n", __func__);
+	}
+	RegCloseKey(hKey);
 
 	return LADNS_CONF_SERVER_UNKNOWN;
 }
 
-int
-lws_plat_ntpclient_config(struct lws_context *context)
-{
-#if defined(LWS_HAVE_GETENV)
-	char *ntpsrv = getenv("LWS_NTP_SERVER");
-
-	if (ntpsrv && strlen(ntpsrv) < 64) {
-		lws_system_blob_heap_append(lws_system_get_blob(context,
-					    LWS_SYSBLOB_TYPE_NTP_SERVER, 0),
-					    (const uint8_t *)ntpsrv,
-					    strlen(ntpsrv));
-		return 1;
-	}
-#endif
-	return 0;
-}

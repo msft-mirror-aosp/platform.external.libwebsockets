@@ -29,6 +29,7 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 	uint8_t buf[LWS_PRE + LWS_RECOMMENDED_MIN_HEADER_SPACE],
 		*start = &buf[LWS_PRE], *p = start,
 		*end = &buf[sizeof(buf) - 1];
+	const char *val;
 	int n;
 
 	switch (reason) {
@@ -45,13 +46,13 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		/* we just dump the decoded things to the log */
 
 		for (n = 0; n < (int)LWS_ARRAY_SIZE(param_names); n++) {
-			int rv = lws_get_urlarg_by_name_safe(wsi, param_names[n],
+			val = lws_get_urlarg_by_name(wsi, param_names[n],
 					(char *)buf, sizeof(buf));
-			if (rv < 0)
+			if (!val)
 				lwsl_user("%s: undefined\n", param_names[n]);
 			else
 				lwsl_user("%s: (len %d) '%s'\n", param_names[n],
-					  (int)rv, buf);
+					  (int)strlen((const char *)buf),buf);
 		}
 
 		/*
@@ -73,8 +74,8 @@ callback_http(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 }
 
 static struct lws_protocols protocols[] = {
-	{ "http", callback_http, 0, 0, 0, NULL, 0 },
-	LWS_PROTOCOL_LIST_TERM
+	{ "http", callback_http, 0, 0 },
+	{ NULL, NULL, 0, 0 } /* terminator */
 };
 
 /* default mount serves the URL space from ./mount-origin */

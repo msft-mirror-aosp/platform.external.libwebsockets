@@ -51,8 +51,7 @@ lws_genec_confirm_curve_allowed_by_tls_id(const char *allowed, int id,
 {
 	struct lws_tokenize ts;
 	lws_tokenize_elem e;
-	size_t len;
-	int n;
+	int n, len;
 
 	lws_tokenize_init(&ts, allowed, LWS_TOKENIZE_F_COMMA_SEP_LIST |
 				       LWS_TOKENIZE_F_MINUS_NONTERM);
@@ -69,8 +68,8 @@ lws_genec_confirm_curve_allowed_by_tls_id(const char *allowed, int id,
 				}
 				lwsl_info("match curve %s\n",
 					  lws_ec_curves[n].name);
-				len = strlen(lws_ec_curves[n].name);
-				jwk->e[LWS_GENCRYPTO_EC_KEYEL_CRV].len = (uint32_t)len;
+				len = (int)strlen(lws_ec_curves[n].name);
+				jwk->e[LWS_GENCRYPTO_EC_KEYEL_CRV].len = len;
 				jwk->e[LWS_GENCRYPTO_EC_KEYEL_CRV].buf =
 						lws_malloc(len + 1, "cert crv");
 				if (!jwk->e[LWS_GENCRYPTO_EC_KEYEL_CRV].buf) {
