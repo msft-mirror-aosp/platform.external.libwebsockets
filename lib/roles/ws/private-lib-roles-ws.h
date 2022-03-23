@@ -87,8 +87,6 @@ struct lws_pt_role_ws {
 };
 #endif
 
-#define PAYLOAD_BUF_SIZE 128 - 3 + LWS_PRE
-
 struct _lws_websocket_related {
 	unsigned char *rx_ubuf;
 #if !defined(LWS_WITHOUT_EXTENSIONS)
@@ -105,8 +103,7 @@ struct _lws_websocket_related {
 #endif
 
 	/* Also used for close content... control opcode == < 128 */
-	uint8_t ping_payload_buf[PAYLOAD_BUF_SIZE];
-	uint8_t pong_payload_buf[PAYLOAD_BUF_SIZE];
+	uint8_t ping_payload_buf[128 - 3 + LWS_PRE];
 
 	unsigned int final:1;
 	unsigned int frame_is_binary:1;
@@ -115,7 +112,7 @@ struct _lws_websocket_related {
 	unsigned int inside_frame:1; /* next write will be more of frame */
 	unsigned int clean_buffer:1; /* buffer not rewritten by extension */
 	unsigned int payload_is_close:1; /* process as PONG, but it is close */
-	unsigned int pong_pending_flag:1;
+	unsigned int ping_pending_flag:1;
 	unsigned int continuation_possible:1;
 	unsigned int owed_a_fin:1;
 	unsigned int check_utf8:1;
@@ -137,7 +134,7 @@ struct _lws_websocket_related {
 	uint32_t rx_ubuf_head;
 	uint32_t rx_ubuf_alloc;
 
-	uint8_t pong_payload_len;
+	uint8_t ping_payload_len;
 	uint8_t mask_idx;
 	uint8_t opcode;
 	uint8_t rsv;
