@@ -66,19 +66,12 @@
  */
 
 #if !defined (LWS_PLUGIN_STATIC)
-#if !defined(LWS_DLL)
 #define LWS_DLL
-#endif
-#if !defined(LWS_INTERNAL)
 #define LWS_INTERNAL
-#endif
 #include <libwebsockets.h>
 #endif
 
 #include <string.h>
-#include <fcntl.h>
-
-#include <sys/stat.h>
 
 struct per_vhost_data__raw_test {
 	struct lws_context *context;
@@ -114,8 +107,6 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		vhd = lws_protocol_vh_priv_zalloc(lws_get_vhost(wsi),
 				lws_get_protocol(wsi),
 				sizeof(struct per_vhost_data__raw_test));
-		if (!vhd)
-			return 0;
 		vhd->context = lws_get_context(wsi);
 		vhd->protocol = lws_get_protocol(wsi);
 		vhd->vhost = lws_get_vhost(wsi);
@@ -129,7 +120,7 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 				pvo = pvo->next;
 			}
 			if (vhd->fifo_path[0] == '\0') {
-				lwsl_warn("%s: Missing pvo \"fifo-path\", "
+				lwsl_err("%s: Missing pvo \"fifo-path\", "
 					 "raw file fd testing disabled\n",
 					 __func__);
 				break;
@@ -184,7 +175,7 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 			char buf[256];
 			int n;
 			
-			n = (int)read(vhd->fifo, buf, sizeof(buf) - 1);
+			n = read(vhd->fifo, buf, sizeof(buf) - 1);
 			if (n < 0) {
 				lwsl_err("FIFO read failed\n");
 				return 1;
@@ -253,7 +244,7 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		if (len > sizeof(pss->buf))
 			len = sizeof(pss->buf);
 		memcpy(pss->buf, in, len);
-		pss->len = (int)len;
+		pss->len = len;
 		lws_callback_on_writable(wsi);
 		break;
 
@@ -263,7 +254,7 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 
 	case LWS_CALLBACK_RAW_WRITEABLE:
 		lwsl_notice("LWS_CALLBACK_RAW_WRITEABLE\n");
-		lws_write(wsi, pss->buf, (size_t)pss->len, LWS_WRITE_HTTP);
+		lws_write(wsi, pss->buf, pss->len, LWS_WRITE_HTTP);
 		break;
 
 	default:
@@ -278,27 +269,37 @@ callback_raw_test(struct lws *wsi, enum lws_callback_reasons reason, void *user,
 		"protocol-lws-raw-test", \
 		callback_raw_test, \
 		sizeof(struct per_session_data__raw_test), \
-		1024, /* rx buf size must be >= permessage-deflate rx size */ 0, NULL, 0\
+		1024, /* rx buf size must be >= permessage-deflate rx size */ \
 	}
 
 #if !defined (LWS_PLUGIN_STATIC)
 		
-LWS_VISIBLE const struct lws_protocols lws_raw_test_protocols[] = {
+static const struct lws_protocols protocols[] = {
 	LWS_PLUGIN_PROTOCOL_RAW_TEST
 };
 
-LWS_VISIBLE const lws_plugin_protocol_t lws_raw_test = {
-	.hdr = {
-		"lws raw test",
-		"lws_protocol_plugin",
-		LWS_BUILD_HASH,
-		LWS_PLUGIN_API_MAGIC
-	},
+LWS_VISIBLE int
+init_protocol_lws_raw_test(struct lws_context *context,
+			     struct lws_plugin_capability *c)
+{
+	if (c->api_magic != LWS_PLUGIN_API_MAGIC) {
+		lwsl_err("Plugin API %d, library API %d", LWS_PLUGIN_API_MAGIC,
+			 c->api_magic);
+		return 1;
+	}
 
-	.protocols = lws_raw_test_protocols,
-	.count_protocols = LWS_ARRAY_SIZE(lws_raw_test_protocols),
-	.extensions = NULL,
-	.count_extensions = 0,
-};
+	c->protocols = protocols;
+	c->count_protocols = LWS_ARRAY_SIZE(protocols);
+	c->extensions = NULL;
+	c->count_extensions = 0;
+
+	return 0;
+}
+
+LWS_VISIBLE int
+destroy_protocol_lws_raw_test(struct lws_context *context)
+{
+	return 0;
+}
 
 #endif

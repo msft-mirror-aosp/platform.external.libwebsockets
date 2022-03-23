@@ -27,9 +27,9 @@
 #include "protocol_lws_minimal_pmd_bulk.c"
 
 static struct lws_protocols protocols[] = {
-	{ "http", lws_callback_http_dummy, 0, 0, 0, NULL, 0 },
+	{ "http", lws_callback_http_dummy, 0, 0 },
 	LWS_PLUGIN_PROTOCOL_MINIMAL_PMD_BULK,
-	LWS_PROTOCOL_LIST_TERM
+	{ NULL, NULL, 0, 0 } /* terminator */
 };
 
 static int interrupted, options;

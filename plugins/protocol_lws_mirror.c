@@ -24,12 +24,8 @@
  */
 
 #if !defined (LWS_PLUGIN_STATIC)
-#if !defined(LWS_DLL)
 #define LWS_DLL
-#endif
-#if !defined(LWS_INTERNAL)
 #define LWS_INTERNAL
-#endif
 #include <libwebsockets.h>
 #endif
 
@@ -86,7 +82,7 @@ __mirror_rxflow_instance(struct mirror_instance *mi, int enable)
 		lws_rx_flow_control(pss->wsi, enable);
 	} lws_end_foreach_ll(pss, same_mi_pss_list);
 
-	mi->rx_enabled = (char)enable;
+	mi->rx_enabled = enable;
 }
 
 /*
@@ -210,26 +206,17 @@ callback_lws_mirror(struct lws *wsi, enum lws_callback_reasons reason,
 	switch (reason) {
 	case LWS_CALLBACK_ESTABLISHED:
 		lwsl_info("%s: LWS_CALLBACK_ESTABLISHED\n", __func__);
-		if (!v) {
-			lws_protocol_vh_priv_zalloc(lws_get_vhost(wsi),
-					lws_get_protocol(wsi),
-					sizeof(struct per_vhost_data__lws_mirror));
-			v = (struct per_vhost_data__lws_mirror *)
-					lws_protocol_vh_priv_get(lws_get_vhost(wsi),
-								 lws_get_protocol(wsi));
-			lws_pthread_mutex_init(&v->lock);
-		}
 
 		/*
 		 * mirror instance name... defaults to "", but if URL includes
 		 * "?mirror=xxx", will be "xxx"
 		 */
-
-		if (lws_get_urlarg_by_name_safe(wsi, "mirror", name,
-					        sizeof(name) - 1) < 0) {
+		name[0] = '\0';
+		if (!lws_get_urlarg_by_name(wsi, "mirror", name,
+					   sizeof(name) - 1))
 			lwsl_debug("get urlarg failed\n");
-			name[0] = '\0';
-		}
+		if (strchr(name, '='))
+			pn = strchr(name, '=') + 1;
 
 		//lwsl_notice("%s: mirror name '%s'\n", __func__, pn);
 
@@ -345,17 +332,13 @@ bail1:
 		return 1; /* disallow compression */
 
 	case LWS_CALLBACK_PROTOCOL_INIT: /* per vhost */
-		if (!v) {
-			lws_protocol_vh_priv_zalloc(lws_get_vhost(wsi),
+		lws_protocol_vh_priv_zalloc(lws_get_vhost(wsi),
 				lws_get_protocol(wsi),
 				sizeof(struct per_vhost_data__lws_mirror));
-			v = (struct per_vhost_data__lws_mirror *)
+		v = (struct per_vhost_data__lws_mirror *)
 				lws_protocol_vh_priv_get(lws_get_vhost(wsi),
 							 lws_get_protocol(wsi));
-			if (!v)
-				return 0;
-			lws_pthread_mutex_init(&v->lock);
-		}
+		lws_pthread_mutex_init(&v->lock);
 		break;
 
 	case LWS_CALLBACK_PROTOCOL_DESTROY:
@@ -484,22 +467,31 @@ done2:
 
 #if !defined (LWS_PLUGIN_STATIC)
 
-LWS_VISIBLE const struct lws_protocols lws_mirror_protocols[] = {
+static const struct lws_protocols protocols[] = {
 	LWS_PLUGIN_PROTOCOL_MIRROR
 };
 
-LWS_VISIBLE const lws_plugin_protocol_t lws_mirror = {
-	.hdr = {
-		"lws mirror",
-		"lws_protocol_plugin",
-		LWS_BUILD_HASH,
-		LWS_PLUGIN_API_MAGIC
-	},
+LWS_VISIBLE int
+init_protocol_lws_mirror(struct lws_context *context,
+			     struct lws_plugin_capability *c)
+{
+	if (c->api_magic != LWS_PLUGIN_API_MAGIC) {
+		lwsl_err("Plugin API %d, library API %d", LWS_PLUGIN_API_MAGIC,
+			 c->api_magic);
+		return 1;
+	}
 
-	.protocols = lws_mirror_protocols,
-	.count_protocols = LWS_ARRAY_SIZE(lws_mirror_protocols),
-	.extensions = NULL,
-	.count_extensions = 0,
-};
+	c->protocols = protocols;
+	c->count_protocols = LWS_ARRAY_SIZE(protocols);
+	c->extensions = NULL;
+	c->count_extensions = 0;
 
+	return 0;
+}
+
+LWS_VISIBLE int
+destroy_protocol_lws_mirror(struct lws_context *context)
+{
+	return 0;
+}
 #endif

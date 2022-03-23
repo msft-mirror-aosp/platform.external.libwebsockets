@@ -19,7 +19,7 @@
 
 static struct lws_protocols protocols[] = {
 	LWS_PLUGIN_PROTOCOL_MINIMAL_CLIENT_ECHO,
-	LWS_PROTOCOL_LIST_TERM
+	{ NULL, NULL, 0, 0 } /* terminator */
 };
 
 static struct lws_context *context;
