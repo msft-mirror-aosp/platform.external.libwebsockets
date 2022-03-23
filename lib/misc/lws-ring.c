@@ -22,6 +22,7 @@
  * IN THE SOFTWARE.
  */
 
+#include <libwebsockets.h>
 #include "private-lib-core.h"
 
 struct lws_ring *
@@ -81,19 +82,19 @@ lws_ring_get_count_free_elements(struct lws_ring *ring)
 	 * |*****ht*********|
 	 */
 	if (ring->head == ring->oldest_tail)
-		f = (int)(ring->buflen - ring->element_len);
+		f = ring->buflen - ring->element_len;
 	else
 		if (ring->head < ring->oldest_tail)
-			f = (int)((ring->oldest_tail - ring->head) -
-			    ring->element_len);
+			f = (ring->oldest_tail - ring->head) -
+			    ring->element_len;
 		else
-			f = (int)((ring->buflen - ring->head) + ring->oldest_tail -
-			    ring->element_len);
+			f = (ring->buflen - ring->head) + ring->oldest_tail -
+			    ring->element_len;
 
 	if (f < 2)
 		return 0;
 
-	return (unsigned int)f / ring->element_len;
+	return f / ring->element_len;
 }
 
 size_t
@@ -115,11 +116,11 @@ lws_ring_get_count_waiting_elements(struct lws_ring *ring, uint32_t *tail)
 		f = 0;
 	else
 		if (ring->head > *tail)
-			f = (int)(ring->head - *tail);
+			f = (ring->head - *tail);
 		else
-			f = (int)((ring->buflen - *tail) + ring->head);
+			f = (ring->buflen - *tail) + ring->head;
 
-	return (unsigned int)f / ring->element_len;
+	return f / ring->element_len;
 }
 
 int
@@ -134,7 +135,7 @@ lws_ring_next_linear_insert_range(struct lws_ring *ring, void **start,
 	if (!n)
 		return 1;
 
-	if (ring->head + (unsigned int)n > ring->buflen) {
+	if (ring->head + n > ring->buflen) {
 		*start = (void *)(((uint8_t *)ring->buf) + ring->head);
 		*bytes = ring->buflen - ring->head;
 
@@ -142,7 +143,7 @@ lws_ring_next_linear_insert_range(struct lws_ring *ring, void **start,
 	}
 
 	*start = (void *)(((uint8_t *)ring->buf) + ring->head);
-	*bytes = (unsigned int)n;
+	*bytes = n;
 
 	return 0;
 }
@@ -157,8 +158,7 @@ size_t
 lws_ring_insert(struct lws_ring *ring, const void *src, size_t max_count)
 {
 	const uint8_t *osrc = src;
-	size_t m;
-	int n;
+	int m, n;
 
 	/* n is how many bytes the whole fifo can take */
 	n = (int)(lws_ring_get_count_free_elements(ring) * ring->element_len);
@@ -171,7 +171,7 @@ lws_ring_insert(struct lws_ring *ring, const void *src, size_t max_count)
 	 * n is legal to insert, but as an optimization we can cut the
 	 * insert into one or two memcpys, depending on if it wraps
 	 */
-	if (ring->head + (unsigned int)n > ring->buflen) {
+	if (ring->head + n > ring->buflen) {
 
 		/*
 		 * He does wrap.  The first memcpy should take us up to
@@ -186,13 +186,13 @@ lws_ring_insert(struct lws_ring *ring, const void *src, size_t max_count)
 		/* adapt the second memcpy for what we already did */
 
 		src = ((uint8_t *)src) + m;
-		n = n - (int)m;
+		n -= m;
 	}
 
-	memcpy(((uint8_t *)ring->buf) + ring->head, src, (size_t)n);
-	ring->head = (ring->head + (unsigned int)n) % ring->buflen;
+	memcpy(((uint8_t *)ring->buf) + ring->head, src, n);
+	ring->head = (ring->head + n) % ring->buflen;
 
-	return (unsigned long)(((uint8_t *)src + (unsigned int)n) - osrc) / ring->element_len;
+	return (((uint8_t *)src + n) - osrc) / ring->element_len;
 }
 
 size_t
@@ -218,21 +218,21 @@ lws_ring_consume(struct lws_ring *ring, uint32_t *tail, void *dest,
 		n = (int)(max_count * ring->element_len);
 
 	if (!dest) {
-		*tail = ((*tail) + (unsigned int)n) % ring->buflen;
+		*tail = ((*tail) + n) % ring->buflen;
 		if (!orig_tail) /* single tail */
 			lws_ring_update_oldest_tail(ring, *tail);
 
-		return (unsigned int)n / ring->element_len;
+		return n / ring->element_len;
 	}
-	if (*tail + (unsigned int)n > ring->buflen) {
+	if (*tail + n > ring->buflen) {
 
 		/*
 		 * He does wrap.  The first memcpy should take us up to
 		 * the end of the buffer
 		 */
 
-		m = (int32_t)(ring->buflen - *tail);
-		memcpy(dest, ((uint8_t *)ring->buf) + *tail, (size_t)m);
+		m = ring->buflen - *tail;
+		memcpy(dest, ((uint8_t *)ring->buf) + *tail, m);
 		/* we know it will wrap exactly back to zero */
 		*tail = 0;
 
@@ -242,13 +242,13 @@ lws_ring_consume(struct lws_ring *ring, uint32_t *tail, void *dest,
 		n -= m;
 	}
 
-	memcpy(dest, ((uint8_t *)ring->buf) + *tail, (size_t)n);
+	memcpy(dest, ((uint8_t *)ring->buf) + *tail, n);
 
-	*tail = ((*tail) + (unsigned int)n) % ring->buflen;
+	*tail = ((*tail) + n) % ring->buflen;
 	if (!orig_tail) /* single tail */
 		lws_ring_update_oldest_tail(ring, *tail);
 
-	return (unsigned int)(((uint8_t *)dest + n) - odest) / (unsigned int)ring->element_len;
+	return (((uint8_t *)dest + n) - odest) / ring->element_len;
 }
 
 const void *

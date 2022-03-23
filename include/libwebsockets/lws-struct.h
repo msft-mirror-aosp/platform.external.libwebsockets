@@ -35,7 +35,6 @@ typedef enum {
 	LSMT_LIST,
 	LSMT_CHILD_PTR,
 	LSMT_SCHEMA,
-	LSMT_BLOB_PTR,
 
 } lws_struct_map_type_eum;
 
@@ -190,23 +189,6 @@ typedef struct lws_struct_args {
 	  LSMT_SCHEMA \
 	}
 
-/*
- * This is just used to create the table schema, it is not part of serialization
- * and deserialization.  Blobs should be accessed separately.
- */
-
-#define LSM_BLOB_PTR(type, blobptr_name, qname) \
-	{ \
-	  qname, /* JSON item, or sqlite3 column name */ \
-	  NULL, \
-	  NULL, \
-	  offsetof(type, blobptr_name),       /* member that points to blob */ \
-	  sizeof (((type *)0)->blobptr_name),       /* size of blob pointer */ \
-	  0,		 /* member holding blob len */ \
-	  0, /* size of blob length member */ \
-	  LSMT_BLOB_PTR \
-	}
-
 typedef struct lws_struct_serialize_st {
 	const struct lws_dll2 *dllpos;
 	const lws_struct_map_t *map;
@@ -219,8 +201,7 @@ typedef struct lws_struct_serialize_st {
 } lws_struct_serialize_st_t;
 
 enum {
-	LSSERJ_FLAG_PRETTY	= (1 << 0),
-	LSSERJ_FLAG_OMIT_SCHEMA = (1 << 1)
+	LSSERJ_FLAG_PRETTY = 1
 };
 
 typedef struct lws_struct_serialize {
@@ -261,7 +242,7 @@ LWS_VISIBLE LWS_EXTERN lws_struct_json_serialize_result_t
 lws_struct_json_serialize(lws_struct_serialize_t *js, uint8_t *buf,
 			  size_t len, size_t *written);
 
-typedef struct sqlite3 sqlite3;
+#if defined(LWS_WITH_STRUCT_SQLITE3)
 
 LWS_VISIBLE LWS_EXTERN int
 lws_struct_sq3_serialize(sqlite3 *pdb, const lws_struct_map_t *schema,
@@ -277,8 +258,9 @@ lws_struct_sq3_create_table(sqlite3 *pdb, const lws_struct_map_t *schema);
 
 LWS_VISIBLE LWS_EXTERN int
 lws_struct_sq3_open(struct lws_context *context, const char *sqlite3_path,
-		    char create_if_missing, sqlite3 **pdb);
+		    sqlite3 **pdb);
 
 LWS_VISIBLE LWS_EXTERN int
 lws_struct_sq3_close(sqlite3 **pdb);
 
+#endif

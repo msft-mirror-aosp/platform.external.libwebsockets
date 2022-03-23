@@ -10,11 +10,11 @@
 #endif
 
 #ifdef LWS_MINGW_SUPPORT
-  #include <sys/time.h>
+  #include <winsock2.h>
 #endif
 
-#ifndef _TIMEZONE_DEFINED
-struct timezone
+#ifndef _TIMEZONE_DEFINED 
+struct timezone 
 {
   int  tz_minuteswest; /* minutes W of Greenwich */
   int  tz_dsttime;     /* type of dst correction */
@@ -22,8 +22,6 @@ struct timezone
 
 #endif
 
-#ifndef LWS_MINGW_SUPPORT
 int gettimeofday(struct timeval *tv, struct timezone *tz);
-#endif
 
 #endif
