@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "private-lib-core.h"
-
 #include "ssl_cert.h"
 #include "ssl_pkey.h"
 #include "ssl_x509.h"
@@ -23,7 +21,7 @@
 /**
  * @brief create a certification object according to input certification
  */
-CERT *__ssl_cert_new(CERT *ic, void *rngctx)
+CERT *__ssl_cert_new(CERT *ic)
 {
     CERT *cert;
 
@@ -44,7 +42,7 @@ CERT *__ssl_cert_new(CERT *ic, void *rngctx)
         ix = NULL;
     }
 
-    cert->pkey = __EVP_PKEY_new(ipk, rngctx);
+    cert->pkey = __EVP_PKEY_new(ipk);
     if (!cert->pkey) {
         SSL_DEBUG(SSL_CERT_ERROR_LEVEL, "__EVP_PKEY_new() return NULL");
         goto pkey_err;
@@ -69,9 +67,9 @@ no_mem:
 /**
  * @brief create a certification object include private key object
  */
-CERT *ssl_cert_new(void *rngctx)
+CERT *ssl_cert_new(void)
 {
-    return __ssl_cert_new(NULL, rngctx);
+    return __ssl_cert_new(NULL);
 }
 
 /**

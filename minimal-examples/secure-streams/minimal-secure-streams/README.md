@@ -23,9 +23,6 @@ Commandline option|Meaning
 -d <loglevel>|Debug verbosity in decimal, eg, -d15
 -f| Force connecting to the wrong endpoint to check backoff retry flow
 -p| Run as proxy server for clients to connect to over unix domain socket
---force-portal|Force the SS Captive Portal Detection to feel it's behind a portal
---force-no-internet|Force the SS Captive Portal Detection to feel it can't reach the internet
---blob|Download a 50MiB blob from warmact.com, using flow control at the proxy
 
 ```
 [2019/08/12 07:16:11:0045] USR: LWS minimal secure streams [-d<verbosity>] [-f]
