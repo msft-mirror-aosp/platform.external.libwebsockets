@@ -177,7 +177,6 @@ cc_library_static {
         "libssl",
         "libcap",
     ],
-    c_std: "gnu17",
     host_supported: true,
     product_variables: {
         debuggable: {
