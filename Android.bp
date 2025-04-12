@@ -220,4 +220,7 @@ cc_library_static {
             ],
         },
     },
+    visibility: [
+        "//device/google/cuttlefish:__subpackages__",
+    ],
 }
